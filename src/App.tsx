@@ -36,6 +36,7 @@ function App() {
     useEffect(() => {
         startPolling();
         return () => stopPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chatId]);
 
     useEffect(() => {
@@ -94,6 +95,7 @@ function App() {
             Toast.success('发送成功');
         } catch (e) {
             Toast.error('发送失败');
+            console.error(`发送消息失败: ${e}`);
         }
     };
 
@@ -104,7 +106,7 @@ function App() {
                 <List
                     className="max-h-1/2 overflow-scroll"
                     dataSource={roomList}
-                    renderItem={(item: any) => (
+                    renderItem={(item: { id: number; title: string }) => (
                         <List.Item>
                             <Button
                                 disabled={!xRef.current}
@@ -158,6 +160,7 @@ function App() {
                                     Toast.success('新聊天室创建成功，聊天室ID已复制，发给好友即可加入');
                                 } catch (e) {
                                     Toast.error('新聊天室创建失败');
+                                    console.error(`创建聊天室失败: ${e}`);
                                 }
                             }}
                         >

@@ -93,13 +93,13 @@ class XESCloudValue {
                 } catch (error) {
                     clearTimeout(timeoutId);
                     ws.close();
-                    reject(new Error('解析响应数据失败'));
+                    reject(new Error(`解析响应数据失败: ${error}`));
                 }
             };
 
-            ws.onerror = _ => {
+            ws.onerror = (error) => {
                 clearTimeout(timeoutId);
-                reject(new Error('WebSocket连接错误'));
+                reject(new Error(`WebSocket连接错误: ${error}`));
             };
 
             ws.onclose = () => {
@@ -108,7 +108,7 @@ class XESCloudValue {
         });
     }
     async findNum(name: string) {
-        let dic = await this.getAllNum();
+        const dic = await this.getAllNum();
         if (name in dic) {
             return { name: dic[name] };
         } else {
