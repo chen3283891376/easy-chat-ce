@@ -30,6 +30,7 @@ function App() {
     const [input, setInput] = useState<string>('');
     const pollingRef = useRef<number | null>(null);
     const xRef = useRef<XESCloudValue | null>(null);
+    const sendButtonRef = useRef<HTMLButtonElement | null>(null);
 
     useEffect(() => {
         const stored = localStorage.getItem('username');
@@ -94,6 +95,8 @@ function App() {
             toast.info('不能发送空消息');
             return;
         }
+        if (!sendButtonRef.current) return;
+        sendButtonRef.current.disabled = true;
         const x = xRef.current;
         if (!x) return;
         const t = String(Date.now() / 1000);
@@ -105,6 +108,8 @@ function App() {
         } catch (e) {
             toast.error('发送失败');
             console.error(`发送消息失败: ${e}`);
+        } finally {
+            sendButtonRef.current.disabled = false;
         }
     };
 
@@ -224,7 +229,7 @@ function App() {
                         placeholder="请输入文本"
                         className="flex-1"
                     />
-                    <Button onClick={handleSend} size={'icon-sm'}>
+                    <Button ref={sendButtonRef} onClick={handleSend} size={'icon-sm'}>
                         <SendIcon />
                     </Button>
                 </div>
