@@ -97,7 +97,7 @@ class XESCloudValue {
                 }
             };
 
-            ws.onerror = (error) => {
+            ws.onerror = error => {
                 clearTimeout(timeoutId);
                 reject(new Error(`WebSocket连接错误: ${error}`));
             };

@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Layout, Input, List, Avatar, Toast, Typography, Card } from '@douyinfe/semi-ui-19';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
 import { XESCloudValue } from './utils/XesCloud';
+import { LogInIcon, PlusIcon, SendIcon } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageBubble, type Message } from '@/components/MessageBuddle';
 
-const { Sider, Content } = Layout;
-
-type Message = {
-    username: string;
-    msg: string;
-    time: number;
-};
 type Room = {
     id: number;
     title: string;
+};
+
+const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
 };
 
 function App() {
@@ -24,6 +30,7 @@ function App() {
     const [input, setInput] = useState<string>('');
     const pollingRef = useRef<number | null>(null);
     const xRef = useRef<XESCloudValue | null>(null);
+    const sendButtonRef = useRef<HTMLButtonElement | null>(null);
 
     useEffect(() => {
         const stored = localStorage.getItem('username');
@@ -40,15 +47,14 @@ function App() {
     useEffect(() => {
         startPolling();
         return () => stopPolling();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chatId]);
 
     useEffect(() => {
         if (roomList.length === 0) {
-            setRoomList([
-                { id: 26329675, title: '项目大群' },
-            ]);
-            localStorage.setItem('roomList', JSON.stringify(roomList));
+            const defaultRooms = [{ id: 26329675, title: '项目大群' }];
+            setRoomList(defaultRooms);
+            localStorage.setItem('roomList', JSON.stringify(defaultRooms));
         } else {
             localStorage.setItem('roomList', JSON.stringify(roomList));
         }
@@ -86,9 +92,11 @@ function App() {
 
     const handleSend = async () => {
         if (!input.trim()) {
-            Toast.info('不能发送空消息');
+            toast.info('不能发送空消息');
             return;
         }
+        if (!sendButtonRef.current) return;
+        sendButtonRef.current.disabled = true;
         const x = xRef.current;
         if (!x) return;
         const t = String(Date.now() / 1000);
@@ -96,25 +104,25 @@ function App() {
         try {
             await x.sendNum(payload, t);
             setInput('');
-            Toast.success('发送成功');
+            toast.success('发送成功');
         } catch (e) {
-            Toast.error('发送失败');
+            toast.error('发送失败');
             console.error(`发送消息失败: ${e}`);
+        } finally {
+            sendButtonRef.current.disabled = false;
         }
     };
 
     return (
-        <Layout className="h-screen">
-            <Sider className="p-4 bg-gray-50">
-                <Typography.Title heading={5}>选择聊天室</Typography.Title>
-                <List
-                    className="max-h-1/2 overflow-scroll"
-                    dataSource={roomList}
-                    renderItem={(item: Room) => (
-                        <List.Item>
+        <div className="h-screen flex">
+            <div className="w-56 p-4 bg-gray-50 flex flex-col border-r">
+                <h4 className="scroll-m-20 text-xl font-semibold tracking-tight">选择聊天室</h4>
+                <ScrollArea className="flex-1 max-h-1/2 p-2 my-2 border rounded">
+                    {roomList.map((item: Room, index) => (
+                        <div key={item.id} className="mb-2">
                             <Button
                                 disabled={!xRef.current}
-                                type={chatId === item.id ? 'primary' : 'tertiary'}
+                                variant={chatId === item.id ? 'default' : 'secondary'}
                                 onClick={() => {
                                     if (!xRef.current) return;
                                     setChatId(item.id);
@@ -124,28 +132,37 @@ function App() {
                             >
                                 {item.title}
                             </Button>
-                        </List.Item>
-                    )}
-                />
+                            {index !== roomList.length - 1 && <Separator className="my-2" />}
+                        </div>
+                    ))}
+                </ScrollArea>
+                <Separator className="my-2" />
                 <div className="mt-4">
                     <div className="mb-2">当前用户：</div>
-                    <div className="mb-3">{username}</div>
-                    <Button
-                        onClick={() => {
-                            const n = window.prompt('输入新的用户名：', username || '');
-                            if (n) {
-                                localStorage.setItem('username', n);
-                                setUsername(n);
-                            }
-                        }}
-                    >
-                        切换用户名
-                    </Button>
+                    <div className="mb-3 flex items-center">
+                        {username}
+                        <Button
+                            className="ml-2"
+                            variant="outline"
+                            size="xs"
+                            onClick={() => {
+                                const n = window.prompt('输入新的用户名：', username || '');
+                                if (n) {
+                                    localStorage.setItem('username', n);
+                                    setUsername(n);
+                                }
+                            }}
+                        >
+                            切换用户名
+                        </Button>
+                    </div>
+
+                    <Separator className="my-4" />
 
                     <div className="mt-4 flex gap-2">
                         <Button
                             disabled={!xRef.current}
-                            type="primary"
+                            size="sm"
                             onClick={async () => {
                                 const projectId = String(Math.floor(Math.random() * 1000000000));
                                 const x = xRef.current;
@@ -161,17 +178,19 @@ function App() {
                                         { id: Number(projectId), title: `房间${projectId}` },
                                     ]);
                                     await navigator.clipboard.writeText(projectId);
-                                    Toast.success('新聊天室创建成功，聊天室ID已复制，发给好友即可加入');
+                                    toast.success('新聊天室创建成功，聊天室ID已复制，发给好友即可加入');
                                 } catch (e) {
-                                    Toast.error('新聊天室创建失败');
+                                    toast.error('新聊天室创建失败');
                                     console.error(`创建聊天室失败: ${e}`);
                                 }
                             }}
                         >
+                            <PlusIcon />
                             创建房间
                         </Button>
                         <Button
-                            type="tertiary"
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                                 const projectId = window.prompt('请输入房间ID：');
                                 if (projectId && !roomList.some(room => room.id === Number(projectId))) {
@@ -183,41 +202,39 @@ function App() {
                                 }
                             }}
                         >
+                            <LogInIcon />
                             加入房间
                         </Button>
                     </div>
                 </div>
-            </Sider>
-            <Layout>
-                <Content className="p-4 overflow-auto">
-                    <List
-                        dataSource={messages}
-                        renderItem={(item: Message) => (
-                            <List.Item>
-                                <Card.Meta
-                                    avatar={<Avatar>{item.username ? item.username[0] : '?'}</Avatar>}
-                                    title={`${item.username}  ${new Date(item.time * 1000).toLocaleString()}`}
-                                    description={<div className="whitespace-pre-wrap">{item.msg}</div>}
-                                />
-                            </List.Item>
-                        )}
-                    />
-                </Content>
-                <div className="p-3 flex gap-2 items-center bg-white">
+            </div>
+
+            <div className="flex-1 flex flex-col">
+                <div className="flex-1 p-4 overflow-auto">
+                    {messages.map((message, index) => (
+                        <MessageBubble
+                            key={index}
+                            message={message}
+                            currentUsername={username}
+                            formatTime={formatTime}
+                        />
+                    ))}
+                </div>
+
+                <div className="p-3 flex gap-2 items-center bg-white border-t">
                     <Input
                         disabled={!xRef.current}
                         value={input}
-                        onChange={v => setInput(v)}
+                        onChange={e => setInput(e.target.value)}
                         placeholder="请输入文本"
-                        onEnterPress={handleSend}
                         className="flex-1"
                     />
-                    <Button type="primary" onClick={handleSend}>
-                        发送
+                    <Button ref={sendButtonRef} onClick={handleSend} size={'icon-sm'}>
+                        <SendIcon />
                     </Button>
                 </div>
-            </Layout>
-        </Layout>
+            </div>
+        </div>
     );
 }
 
