@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,17 @@ export function MessageArea({
     onKeyDown,
     chatId,
 }: MessageAreaProps) {
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (scrollAreaRef.current) {
+            const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]');
+            if (viewport) {
+                viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+            }
+        }
+    }, [messages]);
+
     const nameMessage = messages.find(message => message.type === 'name');
     let roomName = nameMessage?.msg || `房间${chatId}`;
     if (chatId === '26329675') {
@@ -46,7 +58,10 @@ export function MessageArea({
                 <h1 className="text-lg font-bold">{roomName}</h1>
                 <span className="text-gray-500 text-sm">ID: {chatId}</span>
             </div>
-            <ScrollArea className="flex-1 h-[calc(100%-124px)] p-4 relative">
+            <ScrollArea
+                ref={scrollAreaRef}
+                className="flex-1 h-[calc(100%-124px)] p-4 relative"
+            >
                 {messages.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-gray-400">暂无消息</div>
                 ) : (
