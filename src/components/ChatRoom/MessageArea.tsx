@@ -124,7 +124,7 @@ export function MessageArea({
                     placeholder="请输入文本"
                     className="flex-1"
                 />
-                <Button onClick={onSend} size="icon-sm" disabled={isSending || !isConnected}>
+                <Button onClick={onSend} size="icon-sm" disabled={isSending || !isConnected || input.trim() === ''}>
                     <SendIcon className="h-4 w-4" />
                 </Button>
             </div>
