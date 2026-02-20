@@ -85,7 +85,6 @@ export function ChatRoomSidebar({
                             <Input
                                 value={editNameInput}
                                 onChange={e => onUsernameEditInputChange(e.target.value)}
-                                onBlur={onUsernameEditCancel}
                                 placeholder="请输入用户名"
                                 className="w-24"
                             />
