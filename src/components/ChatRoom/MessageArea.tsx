@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -51,15 +51,31 @@ export function MessageArea({
 }: MessageAreaProps) {
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const [userScrolled, setUserScrolled] = useState(false);
 
     useEffect(() => {
-        if (scrollAreaRef.current) {
+        const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+        if (!viewport) return;
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = viewport;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+            if (!isNearBottom) setUserScrolled(true);
+            else setUserScrolled(false);
+        };
+
+        viewport.addEventListener('scroll', handleScroll);
+        return () => viewport.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    useEffect(() => {
+        if (scrollAreaRef.current && !userScrolled) {
             const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]');
             if (viewport) {
                 viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
             }
         }
-    }, []);
+    }, [messages, userScrolled]);
 
     const nameMessage = messages.find(message => message.type === 'name');
     let roomName = nameMessage?.msg || `房间${chatId}`;
