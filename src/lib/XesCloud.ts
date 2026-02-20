@@ -262,12 +262,205 @@ export class XESCloudValue {
     private projectId: string;
     private cacheManager: MessageCacheManager;
 
+    // 新增：写入专用 WebSocket 连接及队列管理
+    private writeWs: WebSocket | null = null;
+    private writeConnecting: Promise<WebSocket> | null = null;
+    private writeTaskQueue: Array<{
+        task: () => Promise<any>;
+        resolve: (value: any) => void;
+        reject: (reason?: any) => void;
+    }> = [];
+    private isProcessingQueue = false;
+    private currentWriteResolver: {
+        resolve: (event: MessageEvent) => void;
+        reject: (reason?: any) => void;
+        timeoutId: ReturnType<typeof setTimeout>;
+    } | null = null;
+
     constructor(projectId: string, cacheConfig?: Partial<MessageCacheConfig>) {
         this.projectId = projectId;
         this.valueData = new XESCloudValueData(projectId);
         this.url = 'wss://api.xueersi.com/codecloudvariable/ws:80';
         this.cacheManager = new MessageCacheManager(cacheConfig);
     }
+
+    /**
+     * 确保写入连接已建立并可用
+     */
+    private async ensureWriteConnection(timeout: number): Promise<WebSocket> {
+        if (this.writeWs && this.writeWs.readyState === WebSocket.OPEN) {
+            return this.writeWs;
+        }
+        if (this.writeConnecting) {
+            return this.writeConnecting;
+        }
+        this.writeConnecting = new Promise((resolve, reject) => {
+            const ws = new WebSocket(this.url);
+            const timeoutId = setTimeout(() => {
+                reject(new Error('写入连接超时'));
+                this.cleanupWriteConnection();
+            }, timeout);
+
+            ws.onopen = () => {
+                clearTimeout(timeoutId);
+                this.writeWs = ws;
+                this.writeConnecting = null;
+                resolve(ws);
+            };
+
+            ws.onmessage = event => {
+                // 统一处理 ping
+                try {
+                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
+                    if (data.method === 'ping') {
+                        ws.send(JSON.stringify({ method: 'pong' }));
+                        return;
+                    }
+                } catch {
+                    // 忽略解析错误
+                }
+
+                // 将消息交给当前等待的处理器
+                if (this.currentWriteResolver) {
+                    this.currentWriteResolver.resolve(event);
+                }
+            };
+
+            ws.onerror = err => {
+                clearTimeout(timeoutId);
+                reject(err);
+                this.cleanupWriteConnection();
+            };
+
+            ws.onclose = () => {
+                this.cleanupWriteConnection();
+            };
+        });
+        return this.writeConnecting;
+    }
+
+    /**
+     * 清理写入连接及状态，并拒绝队列中所有剩余任务
+     */
+    private cleanupWriteConnection() {
+        if (this.writeWs) {
+            this.writeWs.close();
+            this.writeWs = null;
+        }
+        this.writeConnecting = null;
+
+        // 拒绝当前等待的请求
+        if (this.currentWriteResolver) {
+            clearTimeout(this.currentWriteResolver.timeoutId);
+            this.currentWriteResolver.reject(new Error('连接已关闭'));
+            this.currentWriteResolver = null;
+        }
+
+        // 拒绝队列中所有剩余任务，避免内存泄漏
+        while (this.writeTaskQueue.length > 0) {
+            const item = this.writeTaskQueue.shift();
+            item?.reject(new Error('连接已关闭，任务取消'));
+        }
+    }
+
+    /**
+     * 将写入任务加入队列，并返回一个 Promise
+     */
+    private enqueueWriteTask<T>(task: () => Promise<T>): Promise<T> {
+        return new Promise((resolve, reject) => {
+            this.writeTaskQueue.push({ task, resolve, reject });
+            this.processWriteQueue();
+        });
+    }
+
+    /**
+     * 处理队列中的下一个任务
+     */
+    private async processWriteQueue() {
+        if (this.isProcessingQueue || this.writeTaskQueue.length === 0) {
+            return;
+        }
+        this.isProcessingQueue = true;
+
+        while (this.writeTaskQueue.length > 0) {
+            const next = this.writeTaskQueue[0];
+            if (!next) break;
+
+            try {
+                const result = await next.task();
+                // 任务成功，从队列中移除并 resolve
+                this.writeTaskQueue.shift();
+                next.resolve(result);
+            } catch (error) {
+                // 任务失败，从队列中移除并 reject
+                this.writeTaskQueue.shift();
+                next.reject(error);
+            }
+        }
+
+        this.isProcessingQueue = false;
+    }
+
+    /**
+     * 底层发送单个请求并等待 ack（需确保在任务队列中调用）
+     */
+    private async doWrite(request: any, timeout: number): Promise<any> {
+        const ws = await this.ensureWriteConnection(timeout);
+
+        return new Promise((resolve, reject) => {
+            if (this.currentWriteResolver) {
+                // 不应该发生，因为任务队列保证了串行
+                reject(new Error('上一个请求尚未完成'));
+                return;
+            }
+
+            const timeoutId = setTimeout(() => {
+                if (this.currentWriteResolver === resolver) {
+                    this.currentWriteResolver = null;
+                    reject(new Error('请求超时'));
+                }
+            }, timeout);
+
+            const resolver = {
+                resolve: (event: MessageEvent) => {
+                    clearTimeout(timeoutId);
+                    if (this.currentWriteResolver === resolver) {
+                        this.currentWriteResolver = null;
+                        try {
+                            const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
+                            if (data.method === 'ack') {
+                                resolve(data);
+                            } else {
+                                reject(new Error('非预期的响应'));
+                            }
+                        } catch (e) {
+                            reject(e);
+                        }
+                    }
+                },
+                reject: (err: any) => {
+                    clearTimeout(timeoutId);
+                    if (this.currentWriteResolver === resolver) {
+                        this.currentWriteResolver = null;
+                        reject(err);
+                    }
+                },
+                timeoutId,
+            };
+
+            this.currentWriteResolver = resolver;
+
+            try {
+                ws.send(JSON.stringify(request));
+            } catch (err) {
+                this.currentWriteResolver = null;
+                clearTimeout(timeoutId);
+                reject(err);
+            }
+        });
+    }
+
+    // ========== 公共方法，保持签名不变 ==========
 
     async sendNum(name: string, num: string, timeout: number = 30000): Promise<string> {
         if (typeof num !== 'string') {
@@ -277,62 +470,18 @@ export class XESCloudValue {
             throw new Error('the num is null, please input a num');
         }
 
+        // 清除缓存（保持原行为）
         globalCache.delete(this.projectId);
 
-        return new Promise((resolve, reject) => {
-            const ws = new WebSocket(this.url);
-            let completed = false;
-
-            const timeoutId = window.setTimeout(() => {
-                if (!completed) {
-                    completed = true;
-                    ws.close();
-                    reject(new Error('连接超时'));
-                }
-            }, timeout);
-
-            ws.onopen = () => {
-                if (completed) {
-                    ws.close();
-                    return;
-                }
-                ws.send(JSON.stringify(this.valueData.uploadData(name, num)));
-            };
-
-            ws.onmessage = event => {
-                if (completed) return;
-
-                try {
-                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
-                    if (data.method === 'ack' && data.reply === 'OK') {
-                        completed = true;
-                        clearTimeout(timeoutId);
-                        ws.close();
-                        resolve('success');
-                    }
-                } catch (e) {
-                    completed = true;
-                    clearTimeout(timeoutId);
-                    ws.close();
-                    reject(e);
-                }
-            };
-
-            ws.onerror = () => {
-                if (!completed) {
-                    completed = true;
-                    clearTimeout(timeoutId);
-                    reject(new Error('连接错误'));
-                }
-            };
-
-            ws.onclose = () => {
-                if (!completed) {
-                    completed = true;
-                    clearTimeout(timeoutId);
-                    reject(new Error('连接关闭'));
-                }
-            };
+        // 将单个发送包装为任务
+        return this.enqueueWriteTask(async () => {
+            const request = this.valueData.uploadData(name, num);
+            const response = await this.doWrite(request, timeout);
+            if (response.reply === 'OK') {
+                return 'success';
+            } else {
+                throw new Error('发送失败');
+            }
         });
     }
 
@@ -368,7 +517,7 @@ export class XESCloudValue {
             const result: Record<string, string> = {};
             let completed = false;
 
-            const timeoutId = window.setTimeout(() => {
+            const timeoutId = setTimeout(() => {
                 if (!completed) {
                     completed = true;
                     ws.close();
@@ -447,86 +596,40 @@ export class XESCloudValue {
 
         globalCache.delete(this.projectId);
 
-        return new Promise((resolve, reject) => {
-            const ws = new WebSocket(this.url);
-            const results: Array<{ name: string; reply: string }> = [];
+        // 将整个批量发送包装为一个任务，内部顺序执行每个发送
+        return this.enqueueWriteTask(async () => {
             const entries = Object.entries(dic);
-            let currentIndex = 0;
-            let completed = false;
+            const results: Array<{ name: string; reply: string }> = [];
+            const startTime = Date.now();
 
-            const timeoutId = window.setTimeout(() => {
-                if (!completed) {
-                    completed = true;
-                    ws.close();
-                    resolve(results);
-                }
-            }, timeout);
-
-            const sendNext = () => {
-                if (currentIndex >= entries.length) {
-                    completed = true;
-                    clearTimeout(timeoutId);
-                    ws.close();
-                    resolve(results);
-                    return;
-                }
-
-                const [name, num] = entries[currentIndex];
-                ws.send(JSON.stringify(this.valueData.uploadData(name, num)));
-            };
-
-            ws.onopen = () => {
-                if (completed) {
-                    ws.close();
-                    return;
-                }
-                sendNext();
-            };
-
-            ws.onmessage = event => {
-                if (completed) return;
+            for (const [name, num] of entries) {
+                // 计算剩余超时时间
+                const elapsed = Date.now() - startTime;
+                const remainingTimeout = Math.max(1, timeout - elapsed);
 
                 try {
-                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
-
-                    if (data.method === 'ping') {
-                        ws.send(JSON.stringify({ method: 'pong' }));
-                        return;
-                    }
-
-                    if (data.method === 'ack') {
-                        const [name] = entries[currentIndex];
-                        if (data.reply === 'OK') {
-                            results.push({ name, reply: 'success' });
-                        } else {
-                            results.push({ name, reply: 'fail' });
-                        }
-                        currentIndex++;
-                        sendNext();
-                    }
-                } catch {
-                    const [name] = entries[currentIndex];
+                    const request = this.valueData.uploadData(name, num);
+                    const response = await this.doWrite(request, remainingTimeout);
+                    results.push({
+                        name,
+                        reply: response.reply === 'OK' ? 'success' : 'fail',
+                    });
+                } catch (error) {
+                    // 超时或其他错误，记为 fail
                     results.push({ name, reply: 'fail' });
-                    currentIndex++;
-                    sendNext();
+                    // 如果超时，不再继续发送（与原逻辑一致：超时后 resolve 已获得的结果）
+                    if (error instanceof Error && error.message === '请求超时') {
+                        break;
+                    }
                 }
-            };
 
-            ws.onerror = () => {
-                if (!completed) {
-                    completed = true;
-                    clearTimeout(timeoutId);
-                    reject(new Error('连接错误'));
+                // 如果总时间已超时，停止发送
+                if (Date.now() - startTime >= timeout) {
+                    break;
                 }
-            };
+            }
 
-            ws.onclose = () => {
-                if (!completed) {
-                    completed = true;
-                    clearTimeout(timeoutId);
-                    resolve(results);
-                }
-            };
+            return results;
         });
     }
 
@@ -559,6 +662,7 @@ export class XESCloudValue {
     }
 }
 
+// ========== 导出所有需要对外暴露的类与类型 ==========
 export { LRUCache, MessageCacheManager };
 export type { Message, MessageCacheConfig, LRUCacheConfig, CacheEntry };
 

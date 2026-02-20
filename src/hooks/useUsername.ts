@@ -1,26 +1,13 @@
-// hooks/useUsername.ts
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export function useUsername() {
-    const [username, setUsername] = useState<string>('guest');
     const [isEditing, setIsEditing] = useState(false);
     const [editInput, setEditInput] = useState('');
-
-    useEffect(() => {
-        const stored = localStorage.getItem('username');
-        if (stored) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setUsername(stored);
-        } else {
-            const name = window.prompt('请输入用户名（将保存在本地）', '匿名');
-            if (name) {
-                localStorage.setItem('username', name);
-                setUsername(name);
-            }
-        }
-    }, []);
+    const [username, setUsername] = useState<string | null>(() => localStorage.getItem('username'));
 
     const startEditing = () => {
+        if (!username) throw new Error('请先设立一个用户名');
+
         setEditInput(username);
         setIsEditing(true);
     };

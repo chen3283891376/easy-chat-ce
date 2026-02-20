@@ -3,6 +3,14 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DeleteIcon, EditIcon, CheckIcon, XIcon, PlusIcon, LogInIcon } from 'lucide-react';
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuGroup,
+    ContextMenuItem,
+    ContextMenuShortcut,
+    ContextMenuTrigger,
+} from '@/components/ui/context-menu.tsx';
 
 type Room = {
     id: number;
@@ -45,41 +53,60 @@ export function ChatRoomSidebar({
     onJoinRoom,
 }: ChatRoomSidebarProps) {
     return (
-        <div className="w-56 p-4 bg-gray-50 flex flex-col border-r">
-            <h4 className="scroll-m-20 text-xl font-semibold tracking-tight">选择聊天室</h4>
-            <ScrollArea className="flex-1 max-h-1/2 p-2 my-2 border rounded">
-                {roomList.map((item, index) => (
-                    <div key={item.id}>
-                        <div className="mb-2 flex items-center gap-2">
-                            <Button
-                                disabled={!isConnected}
-                                variant={currentRoomId === item.id ? 'default' : 'secondary'}
-                                onClick={() => onRoomSelect(item.id)}
-                                className="flex-1"
-                            >
-                                {item.title}
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={e => {
-                                    e.stopPropagation();
-                                    onRoomDelete(item.id);
-                                }}
-                                className="shrink-0"
-                                title="删除房间"
-                            >
-                                <DeleteIcon className="h-4 w-4" />
-                            </Button>
+        <div className="w-56 p-4 bg-gray-50 flex flex-col justify-between border-r">
+            <div className="h-full">
+                <h4 className="scroll-m-20 text-xl font-semibold tracking-tight">选择聊天室</h4>
+                <ScrollArea className="flex-1 max-h-full h-full p-2 my-2 border rounded-sm">
+                    {roomList.map(item => (
+                        <div key={item.id}>
+                            <div className="mb-2 flex items-center gap-2">
+                                <ContextMenu>
+                                    <ContextMenuTrigger className="w-full">
+                                        <Button
+                                            disabled={!isConnected}
+                                            variant={currentRoomId === item.id ? 'default' : 'secondary'}
+                                            onClick={() => onRoomSelect(item.id)}
+                                            className="w-full"
+                                        >
+                                            {item.title}
+                                        </Button>
+                                    </ContextMenuTrigger>
+                                    <ContextMenuContent>
+                                        <ContextMenuGroup>
+                                            <ContextMenuItem
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    onRoomDelete(item.id);
+                                                }}
+                                            >
+                                                退出
+                                                <ContextMenuShortcut>
+                                                    <DeleteIcon />
+                                                </ContextMenuShortcut>
+                                            </ContextMenuItem>
+                                            <ContextMenuItem
+                                                disabled={!isConnected}
+                                                onClick={() => onRoomSelect(item.id)}
+                                            >
+                                                进入
+                                                <ContextMenuShortcut>
+                                                    <LogInIcon />
+                                                </ContextMenuShortcut>
+                                            </ContextMenuItem>
+                                        </ContextMenuGroup>
+                                    </ContextMenuContent>
+                                </ContextMenu>
+                            </div>
                         </div>
-                        {index !== roomList.length - 1 && <Separator className="my-2" />}
-                    </div>
-                ))}
-            </ScrollArea>
-            <Separator className="my-2" />
+                    ))}
+                </ScrollArea>
+            </div>
+
+            <div className="my-4" />
+
             <div className="mt-4">
                 <div className="mb-2">当前用户：</div>
-                <div className="mb-3 flex items-center">
+                <div className="mb-3 flex items-center justify-between">
                     {isEditingName ? (
                         <>
                             <Input
