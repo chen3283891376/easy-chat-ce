@@ -192,7 +192,9 @@ export const MessageBubble = ({ message, currentUsername, formatTime, handleReca
                                                 <ContextMenuItem onClick={handleDownload}>下载</ContextMenuItem>
                                             )}
                                             {isCurrentUser && (
-                                                <ContextMenuItem onClick={() => handleRecall(message)}>撤回</ContextMenuItem>
+                                                <ContextMenuItem onClick={() => handleRecall(message)}>
+                                                    撤回
+                                                </ContextMenuItem>
                                             )}
                                         </ContextMenuGroup>
                                     </ContextMenuContent>

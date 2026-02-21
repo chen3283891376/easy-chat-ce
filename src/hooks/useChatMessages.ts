@@ -12,14 +12,14 @@ export interface IFile {
 
 function deduplicateMessages(messages: ChatMessage[]): ChatMessage[] {
     const messageMap = new Map<number, ChatMessage>();
-    
+
     messages.forEach(msg => {
         const existingMsg = messageMap.get(msg.time);
         if (!existingMsg || msg.recalled) {
             messageMap.set(msg.time, msg);
         }
     });
-    
+
     return Array.from(messageMap.values()).sort((a, b) => a.time - b.time);
 }
 
@@ -41,7 +41,7 @@ export const parseMessages = (allMessages: Record<string, string>): ChatMessage[
             console.warn('解析消息失败:', e, payload);
         }
     });
-    
+
     return deduplicateMessages(parsed);
 };
 
@@ -198,9 +198,7 @@ export function useChatMessages(chatId: number, username: string) {
 
         try {
             setMessages(prev => {
-                const updated = prev.map(m => 
-                    m.time === messageTime ? { ...m, recalled: true } : m
-                );
+                const updated = prev.map(m => (m.time === messageTime ? { ...m, recalled: true } : m));
                 return deduplicateMessages(updated);
             });
 
@@ -221,12 +219,10 @@ export function useChatMessages(chatId: number, username: string) {
             return true;
         } catch (e) {
             setMessages(prev => {
-                const rolledBack = prev.map(m => 
-                    m.time === messageTime ? { ...m, recalled: false } : m
-                );
+                const rolledBack = prev.map(m => (m.time === messageTime ? { ...m, recalled: false } : m));
                 return deduplicateMessages(rolledBack);
             });
-            
+
             toast.error('消息撤回失败');
             console.error(`撤回消息失败: ${e}`);
             return false;
