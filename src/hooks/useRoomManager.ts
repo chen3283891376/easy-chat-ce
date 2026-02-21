@@ -27,6 +27,7 @@ export function useRoomManager(initialChatId: number) {
         }
         let roomListStored = JSON.parse(localStorage.getItem('roomList') || '[]') as Room[];
         roomListStored = roomListStored.filter(room => room.id !== 26329675);
+        roomListStored.push({ id: 185655560, title: '项目大群' });
         localStorage.setItem('roomList', JSON.stringify(roomListStored));
     }, [roomList]);
 
