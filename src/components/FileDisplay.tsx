@@ -30,13 +30,21 @@ const isAudioFile = (filename: string): boolean => {
     return ext ? audioExtensions.includes(ext) : false;
 };
 
+const isVideoFile = (filename: string): boolean => {
+    const videoExtensions = ['mp4', 'webm', 'ogg', 'avi', 'mkv'];
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ext ? videoExtensions.includes(ext) : false;
+}
+
 export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
     const [imageError, setImageError] = useState(false);
     const [audioError, setAudioError] = useState(false);
+    const [videoError, setVideoError] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
 
     const resetImageError = () => setImageError(false);
     const resetAudioError = () => setAudioError(false);
+    const resetVideoError = () => setVideoError(false);
 
     const downloadUrl = fileData
         ? `https://livefile.xesimg.com/programme/python_assets/844958913c304c040803a9d7f79f898e.html?name=${fileData.name}&file=${fileData.link.split('python_assets/')[1]}`
@@ -44,28 +52,54 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
 
     const isImage = isImageFile(fileData.name) && !imageError;
     const isAudio = isAudioFile(fileData.name) && !audioError;
+    const isVideo = isVideoFile(fileData.name) && !videoError;
 
     return (
         <div className="flex flex-col gap-1 w-full max-w-md">
-            {isImage ? (
+            {(isImage || isVideo) ? (
                 <div className="relative group">
                     <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
                         <DialogTrigger asChild>
-                            <img
+                            {/* <img
                                 src={fileData?.link}
                                 alt={fileData?.name}
                                 className="max-w-full max-h-64 rounded-t-2xl rounded-br-2xl object-contain cursor-zoom-in"
                                 onError={() => setImageError(true)}
                                 onLoad={resetImageError}
-                            />
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl w-full h-auto p-0 bg-transparent border-none shadow-none">
-                            <div className="relative flex items-center justify-center">
+                            /> */}
+                            {isImage ? (
                                 <img
                                     src={fileData?.link}
                                     alt={fileData?.name}
-                                    className="max-w-full max-h-[90vh] object-contain"
+                                    className="max-w-full max-h-64 rounded-t-2xl rounded-br-2xl object-contain cursor-zoom-in"
+                                    onError={() => setImageError(true)}
+                                    onLoad={resetImageError}
                                 />
+                            ) : (
+                                <video
+                                    src={fileData?.link}
+                                    controls
+                                    className="max-w-full max-h-64 rounded-t-2xl rounded-br-2xl object-contain cursor-zoom-in"
+                                    onError={() => setVideoError(true)}
+                                    onLoad={resetVideoError}
+                                />
+                            )}
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl w-full h-auto p-0 bg-transparent border-none shadow-none">
+                            <div className="relative flex items-center justify-center">
+                                {isImage ? (
+                                    <img
+                                        src={fileData?.link}
+                                        alt={fileData?.name}
+                                        className="max-w-full max-h-[90vh] object-contain"
+                                    />
+                                ) : (
+                                    <video
+                                        src={fileData?.link}
+                                        controls
+                                        className="max-w-full max-h-[90vh] object-contain"
+                                    />
+                                )}
                                 <DialogClose className="absolute top-2 right-2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">
                                     <X size={20} />
                                 </DialogClose>
