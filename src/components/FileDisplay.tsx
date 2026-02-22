@@ -163,7 +163,9 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                         </div>
                         <div className="flex-1 min-w-25">
                             <p className="text-sm font-medium truncate">{fileData?.name || '未知文件名'}</p>
-                            <p className="text-xs text-gray-500">{fileData?.size || '未知大小'}</p>
+                            <p className={cn('text-xs', isCurrentUser ? 'text-gray-300' : 'text-gray-500')}>
+                                {fileData?.size || '未知大小'}
+                            </p>
                         </div>
                         <a
                             href={downloadUrl}

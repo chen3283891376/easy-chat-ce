@@ -58,6 +58,7 @@ export function MessageArea({
     const [userScrolled, setUserScrolled] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const { upload, isUploading } = useFileUpload();
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
         const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
@@ -97,11 +98,20 @@ export function MessageArea({
         try {
             const data = await upload(selectedFile);
             sendFile(data);
+
+            setOpen(false);
+            setTimeout(() => setSelectedFile(null), 300);
         } catch {
             // 无需处理
         } finally {
             setSelectedFile(null);
+            setOpen(false);
         }
+    };
+
+    const handleOpenChange = (isOpen: boolean) => {
+        setOpen(isOpen);
+        if (!isOpen) setSelectedFile(null);
     };
 
     return (
@@ -157,7 +167,7 @@ export function MessageArea({
                 )}
 
                 <div className="flex gap-2 items-center shrink-0">
-                    <Dialog>
+                    <Dialog open={open} onOpenChange={handleOpenChange}>
                         <DialogTrigger asChild>
                             <Button size="icon-sm" disabled={isSending || !isConnected}>
                                 <FileUpIcon />
