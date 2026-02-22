@@ -1,8 +1,8 @@
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { DeleteIcon, EditIcon, CheckIcon, XIcon, PlusIcon, LogInIcon } from 'lucide-react';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DeleteIcon, EditIcon, CheckIcon, XIcon, PlusIcon, LogInIcon } from "lucide-react";
 import {
     ContextMenu,
     ContextMenuContent,
@@ -10,12 +10,8 @@ import {
     ContextMenuItem,
     ContextMenuShortcut,
     ContextMenuTrigger,
-} from '@/components/ui/context-menu.tsx';
-
-type Room = {
-    id: number;
-    title: string;
-};
+} from "@/components/ui/context-menu.tsx";
+import type { Room } from "@/lib/types";
 
 interface ChatRoomSidebarProps {
     roomList: Room[];
@@ -29,20 +25,20 @@ interface ChatRoomSidebarProps {
     showIDInput: boolean;
     pendingRoomName: string;
     pendingRoomID: string;
-    onRoomSelect: (roomId: number) => void;
-    onRoomDelete: (roomId: number) => void;
+    onRoomSelect: (_roomId: number) => void;
+    onRoomDelete: (_roomId: number) => void;
     onUsernameEditStart: () => void;
     onUsernameEditCancel: () => void;
-    onUsernameEditInputChange: (value: string) => void;
-    onUsernameSave: (newName: string) => void;
+    onUsernameEditInputChange: (_value: string) => void;
+    onUsernameSave: (_newName: string) => void;
     onStartCreateRoom: () => void;
     onStartJoinRoom: () => void;
-    onPendingRoomNameChange: (value: string) => void;
-    onPendingRoomIDChange: (value: string) => void;
+    onPendingRoomNameChange: (_value: string) => void;
+    onPendingRoomIDChange: (_value: string) => void;
     onConfirmCreateRoom: () => Promise<void>;
     onCancelCreateRoom: () => void;
     onCancelJoinRoom: () => void;
-    onJoinRoom: (roomIdInput: string | null) => Promise<void>;
+    onJoinRoom: (_roomIdInput: string | null) => Promise<void>;
 }
 
 export function ChatRoomSidebar({
@@ -77,26 +73,26 @@ export function ChatRoomSidebar({
             <div className="h-full">
                 <h4 className="scroll-m-20 text-xl font-semibold tracking-tight">选择聊天室</h4>
                 <ScrollArea className="flex-1 max-h-full h-full p-2 my-2 border rounded-sm">
-                    {roomList.map(item => (
+                    {roomList.map((item) => (
                         <div key={item.id}>
                             <div className="mb-2 flex items-center gap-2">
                                 <ContextMenu>
                                     <ContextMenuTrigger className="w-full">
                                         <Button
                                             disabled={!isConnected}
-                                            variant={currentRoomId === item.id ? 'default' : 'secondary'}
+                                            variant={currentRoomId === item.id ? "default" : "secondary"}
                                             onClick={() => {
                                                 onRoomSelect(item.id);
                                             }}
                                             className="w-full"
                                         >
-                                            {item.id === 185655560 ? '项目大群' : item.title}
+                                            {item.id === 185655560 ? "项目大群" : item.title}
                                         </Button>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
                                         <ContextMenuGroup>
                                             <ContextMenuItem
-                                                onClick={e => {
+                                                onClick={(e) => {
                                                     e.stopPropagation();
                                                     onRoomDelete(item.id);
                                                 }}
@@ -135,7 +131,7 @@ export function ChatRoomSidebar({
                         <>
                             <Input
                                 value={editNameInput}
-                                onChange={e => {
+                                onChange={(e) => {
                                     onUsernameEditInputChange(e.target.value);
                                 }}
                                 placeholder="请输入用户名"
@@ -180,7 +176,7 @@ export function ChatRoomSidebar({
                         <div className="flex flex-col gap-2 p-2 border rounded bg-white">
                             <Input
                                 value={pendingRoomName}
-                                onChange={e => {
+                                onChange={(e) => {
                                     onPendingRoomNameChange(e.target.value);
                                 }}
                                 placeholder="请输入房间名称"
@@ -218,7 +214,7 @@ export function ChatRoomSidebar({
                         <div className="flex flex-col gap-2 p-2 border rounded bg-white">
                             <Input
                                 value={pendingRoomID}
-                                onChange={e => {
+                                onChange={(e) => {
                                     onPendingRoomIDChange(e.target.value);
                                 }}
                                 placeholder="请输入房间ID"

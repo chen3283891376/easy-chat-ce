@@ -1,10 +1,10 @@
-import { createMD5 } from 'hash-wasm';
+import { createMD5 } from "hash-wasm";
 
 // 上传时所使用的UA
 export const UA =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.61';
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.61";
 // 上传时所用的身份验证
-const AUTHORIZATION = 'e7e380401dc9a31fce2117a60c99ba04';
+const AUTHORIZATION = "e7e380401dc9a31fce2117a60c99ba04";
 // 上传参数
 export interface UploadParam {
     host: string;
@@ -34,23 +34,23 @@ export async function calcFileMD5(file: File): Promise<string> {
 
 // 此函数用于获取上传OSS的参数
 export async function getOSSUploadParams(filename: string, md5: string): Promise<UploadParam> {
-    const scenes = ['offline_python_assets', 'editor_assets', 'code_assets', 'user_assets'];
+    const scenes = ["offline_python_assets", "editor_assets", "code_assets", "user_assets"];
 
     for (const scene of scenes) {
         try {
             const response = await fetch(
                 `/xes/api/assets/get_oss_upload_params?scene=${scene}&md5=${md5}&filename=${encodeURIComponent(filename)}`,
                 {
-                    method: 'GET',
+                    method: "GET",
                     headers: {
                         Authorization: AUTHORIZATION,
-                        'Content-Type': 'application/json',
+                        "Content-Type": "application/json",
                     },
                 },
             );
 
             if (response.ok) {
-                const data = await response.json();
+                const data = (await response.json()) as { data: UploadParam };
                 return data.data;
             }
         } catch {
@@ -58,14 +58,14 @@ export async function getOSSUploadParams(filename: string, md5: string): Promise
         }
     }
 
-    throw new Error('获取上传参数失败');
+    throw new Error("获取上传参数失败");
 }
 
 // 此函数用于将bytes转换成size
 export function formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    return String(Math.round((bytes / Math.pow(k, i)) * 100) / 100) + " " + sizes[i];
 }

@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { useChatMessages } from './hooks/useChatMessages';
-import { useRoomManager } from './hooks/useRoomManager';
-import { useUsername } from './hooks/useUsername';
-import { ChatRoomSidebar } from '@/components/ChatRoom/ChatRoomSidebar';
-import { MessageArea } from './components/ChatRoom/MessageArea';
-import InitProfilePage from '@/pages/InitProfile.tsx';
-import type { KeyboardEvent } from 'react';
-import type { Message as ChatMessage } from '@/components/FileDisplay';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { useChatMessages } from "./hooks/useChatMessages";
+import { useRoomManager } from "./hooks/useRoomManager";
+import { useUsername } from "./hooks/useUsername";
+import { ChatRoomSidebar } from "@/components/ChatRoom/ChatRoomSidebar";
+import { MessageArea } from "./components/ChatRoom/MessageArea";
+import InitProfilePage from "@/pages/InitProfile.tsx";
+import type { KeyboardEvent } from "react";
+import type { Message } from "@/lib/types";
+import { toast } from "sonner";
 
 export default function App() {
     const {
@@ -42,24 +42,24 @@ export default function App() {
 
     const { messages, isSending, sendMessage, sendFile, recallMessage } = useChatMessages(
         chatId,
-        typeof username === 'string' ? username : '',
+        typeof username === "string" ? username : "",
     );
 
-    const [input, setInput] = useState('');
+    const [input, setInput] = useState("");
 
-    const handleSend = async (quoteMessage?: ChatMessage) => {
+    const handleSend = async (quoteMessage?: Message) => {
         const success = await sendMessage(input, quoteMessage);
         if (success) {
-            setInput('');
-            toast.info('发送成功');
+            setInput("");
+            toast.info("发送成功");
         } else {
-            setInput('');
-            toast.error('发送失败');
+            setInput("");
+            toast.error("发送失败");
         }
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             void handleSend();
         }
@@ -113,7 +113,7 @@ export default function App() {
                     onKeyDown={handleKeyDown}
                     chatId={chatId.toString()}
                     sendFile={sendFile}
-                    handleRecall={(message: ChatMessage) => {
+                    handleRecall={(message: Message) => {
                         void recallMessage(message.time);
                     }}
                 />

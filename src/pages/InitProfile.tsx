@@ -1,26 +1,25 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card.tsx';
-import { Input } from '@/components/ui/input.tsx';
-import { Button } from '@/components/ui/button.tsx';
-import { useState } from 'react';
-import { useUsername } from '@/hooks/useUsername.ts';
-import * as z from 'zod';
-import type { MouseEvent } from 'react';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card.tsx";
+import { Input } from "@/components/ui/input.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { useState } from "react";
+import { useUsername } from "@/hooks/useUsername.ts";
+import * as z from "zod";
+import type { MouseEvent } from "react";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import type { ValidationError } from "@/lib/types";
 
-interface ValidationError {
-    message: string;
-}
+const MAX_USERNAME_LENGTH = 20;
 
 export default function InitProfilePage() {
-    const [name, setName] = useState<string>('');
-    const [errorMessage, setErrorMessage] = useState<string | null>('');
+    const [name, setName] = useState<string>("");
+    const [errorMessage, setErrorMessage] = useState<string | null>("");
     const { saveUsername } = useUsername();
 
     const usernameSchema = z.object({
-        username: z.string().min(1, '用户名不得为空').max(20, '用户名不得超过二十字'),
+        username: z.string().min(1, "用户名不得为空").max(MAX_USERNAME_LENGTH, "用户名不得超过二十字"),
     });
 
-    const setUsername = (e: MouseEvent<HTMLButtonElement>) => {
+    function setUsername(e: MouseEvent<HTMLButtonElement>) {
         e.preventDefault();
 
         const result = usernameSchema.safeParse({ username: name });
@@ -31,18 +30,18 @@ export default function InitProfilePage() {
             try {
                 errors = JSON.parse(result.error.message) as ValidationError[];
             } catch {
-                errors = [{ message: '验证失败' }];
+                errors = [{ message: "验证失败" }];
             }
 
-            setErrorMessage(errors[0]?.message || '验证失败');
+            setErrorMessage(errors[0]?.message || "验证失败");
             return;
         }
 
         saveUsername(name);
 
         // 刷新页面
-        window.location.href = '/';
-    };
+        window.location.href = "/";
+    }
 
     return (
         <div className="flex justify-center items-center w-screen h-screen">
@@ -59,7 +58,7 @@ export default function InitProfilePage() {
                         <FieldLabel>用户名</FieldLabel>
                         <Input
                             placeholder="请输入一个用户名"
-                            onChange={e => {
+                            onChange={(e) => {
                                 setName(e.target.value);
                             }}
                             aria-invalid={errorMessage !== null && errorMessage.length > 0}
