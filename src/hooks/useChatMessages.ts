@@ -119,117 +119,126 @@ export function useChatMessages(chatId: number, username: string) {
         };
     }, [chatId, startPolling, stopPolling]);
 
-    const sendMessage = useCallback(async (content: string, quoteMessage?: Message): Promise<boolean> => {
-        if (!content.trim() || !xRef.current) return false;
+    const sendMessage = useCallback(
+        async (content: string, quoteMessage?: Message): Promise<boolean> => {
+            if (!content.trim() || !xRef.current) return false;
 
-        setIsSending(true);
-        try {
-            const time = Date.now() / MS_TO_SECONDS;
-            const payload = JSON.stringify({
-                username: username || "匿名用户",
-                msg: content.trim(),
-                time,
+            setIsSending(true);
+            try {
+                const time = Date.now() / MS_TO_SECONDS;
+                const payload = JSON.stringify({
+                    username: username || "匿名用户",
+                    msg: content.trim(),
+                    time,
+                    recalled: false,
+                    quoteTimeStamp: quoteMessage?.time,
+                } as Message);
+
+                await xRef.current.sendNum(payload, String(time));
+
+                cacheManagerRef.current.clear(chatId);
+                const freshMessages = await xRef.current.getAllNum();
+                cacheManagerRef.current.set(chatId, freshMessages);
+                setMessages(parseMessages(freshMessages));
+
+                toast.success("发送成功");
+                return true;
+            } catch (e) {
+                toast.error("发送失败");
+                console.error("发送消息失败:", e);
+                return false;
+            } finally {
+                setIsSending(false);
+            }
+        },
+        [chatId, username],
+    );
+
+    const sendFile = useCallback(
+        async (file: IFile) => {
+            if (!xRef.current) return;
+            const message: Message = {
+                username,
+                msg: JSON.stringify(file),
+                time: Date.now() / MS_TO_SECONDS,
+                type: "share",
                 recalled: false,
-                quoteTimeStamp: quoteMessage?.time,
-            } as Message);
+            };
+            try {
+                await xRef.current.sendNum(JSON.stringify(message), String(Date.now() / MS_TO_SECONDS));
+                cacheManagerRef.current.clear(chatId);
+                const freshMessages = await xRef.current.getAllNum();
+                cacheManagerRef.current.set(chatId, freshMessages);
+                setMessages(parseMessages(freshMessages));
+                toast.success("发送成功");
+            } catch (e) {
+                toast.error("发送失败");
+                console.error("发送文件失败:", e);
+            }
+        },
+        [chatId, username],
+    );
 
-            await xRef.current.sendNum(payload, String(time));
+    const recallMessage = useCallback(
+        async (messageTime: number, isAdmin?: boolean): Promise<boolean> => {
+            const x = xRef.current;
+            if (!x) {
+                toast.error("聊天未初始化，无法撤回消息");
+                return false;
+            }
 
-            cacheManagerRef.current.clear(chatId);
-            const freshMessages = await xRef.current.getAllNum();
-            cacheManagerRef.current.set(chatId, freshMessages);
-            setMessages(parseMessages(freshMessages));
+            const message = messages.find((m) => m.time === messageTime);
+            if (!message) {
+                toast.error("消息不存在，无法撤回");
+                return false;
+            }
 
-            toast.success("发送成功");
-            return true;
-        } catch (e) {
-            toast.error("发送失败");
-            console.error("发送消息失败:", e);
-            return false;
-        } finally {
-            setIsSending(false);
-        }
-    }, [chatId, username]);
+            const currentUsername = username || "匿名用户";
+            if (message.username !== currentUsername && isAdmin !== true) {
+                toast.error("只能撤回自己发送的消息");
+                return false;
+            }
 
-    const sendFile = useCallback(async (file: IFile) => {
-        if (!xRef.current) return;
-        const message: Message = {
-            username,
-            msg: JSON.stringify(file),
-            time: Date.now() / MS_TO_SECONDS,
-            type: "share",
-            recalled: false,
-        };
-        try {
-            await xRef.current.sendNum(JSON.stringify(message), String(Date.now() / MS_TO_SECONDS));
-            cacheManagerRef.current.clear(chatId);
-            const freshMessages = await xRef.current.getAllNum();
-            cacheManagerRef.current.set(chatId, freshMessages);
-            setMessages(parseMessages(freshMessages));
-            toast.success("发送成功");
-        } catch (e) {
-            toast.error("发送失败");
-            console.error("发送文件失败:", e);
-        }
-    }, [chatId, username]);
+            const now = Date.now() / MS_TO_SECONDS;
+            if (now - message.time > RECALL_TIME_LIMIT) {
+                toast.error("只能撤回2分钟内的消息");
+                return false;
+            }
 
-    const recallMessage = useCallback(async (messageTime: number, isAdmin?: boolean): Promise<boolean> => {
-        const x = xRef.current;
-        if (!x) {
-            toast.error("聊天未初始化，无法撤回消息");
-            return false;
-        }
+            try {
+                setMessages((prev) => {
+                    const updated = prev.map((m) => (m.time === messageTime ? { ...m, recalled: true } : m));
+                    return deduplicateMessages(updated);
+                });
 
-        const message = messages.find((m) => m.time === messageTime);
-        if (!message) {
-            toast.error("消息不存在，无法撤回");
-            return false;
-        }
+                const recallPayload = JSON.stringify({
+                    ...message,
+                    recalled: true,
+                    msg: "[该消息已撤回]",
+                });
 
-        const currentUsername = username || "匿名用户";
-        if (message.username !== currentUsername && isAdmin !== true) {
-            toast.error("只能撤回自己发送的消息");
-            return false;
-        }
+                await x.sendNum(recallPayload, String(messageTime));
 
-        const now = Date.now() / MS_TO_SECONDS;
-        if (now - message.time > RECALL_TIME_LIMIT) {
-            toast.error("只能撤回2分钟内的消息");
-            return false;
-        }
+                cacheManagerRef.current.clear(chatId);
+                const freshMessages = await x.getAllNum();
+                cacheManagerRef.current.set(chatId, freshMessages);
+                setMessages(parseMessages(freshMessages));
 
-        try {
-            setMessages((prev) => {
-                const updated = prev.map((m) => (m.time === messageTime ? { ...m, recalled: true } : m));
-                return deduplicateMessages(updated);
-            });
+                toast.success("消息撤回成功");
+                return true;
+            } catch (e) {
+                setMessages((prev) => {
+                    const rolledBack = prev.map((m) => (m.time === messageTime ? { ...m, recalled: false } : m));
+                    return deduplicateMessages(rolledBack);
+                });
 
-            const recallPayload = JSON.stringify({
-                ...message,
-                recalled: true,
-                msg: "[该消息已撤回]",
-            });
-
-            await x.sendNum(recallPayload, String(messageTime));
-
-            cacheManagerRef.current.clear(chatId);
-            const freshMessages = await x.getAllNum();
-            cacheManagerRef.current.set(chatId, freshMessages);
-            setMessages(parseMessages(freshMessages));
-
-            toast.success("消息撤回成功");
-            return true;
-        } catch (e) {
-            setMessages((prev) => {
-                const rolledBack = prev.map((m) => (m.time === messageTime ? { ...m, recalled: false } : m));
-                return deduplicateMessages(rolledBack);
-            });
-
-            toast.error("消息撤回失败");
-            console.error("撤回消息失败:", e);
-            return false;
-        }
-    }, [chatId, username, messages]);
+                toast.error("消息撤回失败");
+                console.error("撤回消息失败:", e);
+                return false;
+            }
+        },
+        [chatId, username, messages],
+    );
 
     return {
         messages,

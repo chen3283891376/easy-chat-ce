@@ -1,12 +1,12 @@
-import { useRef, useEffect, useState, type KeyboardEvent } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { FileUpIcon, SendIcon, XIcon } from 'lucide-react';
-import { MessageBubble } from '@/components/MessageBuddle';
-import type { Message as ChatMessage, IFile } from '@/lib/types';
-import { FileDisplay } from '@/components/FileDisplay';
-import UploadFile from '@/components/UploadFile.tsx';
+import { useRef, useEffect, useState, type KeyboardEvent } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { FileUpIcon, SendIcon, XIcon } from "lucide-react";
+import { MessageBubble } from "@/components/MessageBuddle";
+import type { Message as ChatMessage, IFile } from "@/lib/types";
+import { FileDisplay } from "@/components/FileDisplay";
+import UploadFile from "@/components/UploadFile.tsx";
 import {
     Dialog,
     DialogClose,
@@ -15,14 +15,14 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '@/components/ui/dialog.tsx';
-import { useFileUpload } from '@/hooks/useFileUpload';
-import { Progress } from '@/components/ui/progress';
+} from "@/components/ui/dialog.tsx";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import { Progress } from "@/components/ui/progress";
 
 const formatTime = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
     return `${hours}:${minutes}`;
 };
 
@@ -71,9 +71,9 @@ export function MessageArea({
             else setUserScrolled(false);
         };
 
-        viewport.addEventListener('scroll', handleScroll);
+        viewport.addEventListener("scroll", handleScroll);
         return () => {
-            viewport.removeEventListener('scroll', handleScroll);
+            viewport.removeEventListener("scroll", handleScroll);
         };
     }, []);
 
@@ -81,15 +81,15 @@ export function MessageArea({
         if (scrollAreaRef.current && !userScrolled) {
             const viewport = scrollAreaRef.current.querySelector('[data-slot="scroll-area-viewport"]');
             if (viewport) {
-                viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+                viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
             }
         }
     }, [messages, userScrolled]);
 
-    const nameMessage = messages.find(message => message.type === 'name');
+    const nameMessage = messages.find((message) => message.type === "name");
     let roomName = nameMessage?.msg || `房间${chatId}`;
-    if (chatId === '185655560') {
-        roomName = '项目大群';
+    if (chatId === "185655560") {
+        roomName = "项目大群";
     }
 
     const handleUpload = async () => {
@@ -130,7 +130,7 @@ export function MessageArea({
                             setQuoteMessage={setQuoteMessage}
                             quoteMessage={
                                 message.quoteTimeStamp !== undefined && message.quoteTimeStamp !== 0
-                                    ? messages.find(msg => msg.time === message.quoteTimeStamp)
+                                    ? messages.find((msg) => msg.time === message.quoteTimeStamp)
                                     : undefined
                             }
                             message={message}
@@ -147,7 +147,7 @@ export function MessageArea({
                     <div className="relative text-xs p-2 mb-2 rounded border-l-4 bg-slate-50 border-slate-400 text-slate-800">
                         <p className="font-bold mb-0.5">@{quoteMessage.username}</p>
                         <div className="prose prose-sm max-w-none max-h-24 overflow-y-auto prose-p:my-0 prose-headings:my-1 prose-ul:my-0 prose-ol:my-0 prose-li:my-0 prose-pre:my-1">
-                            {quoteMessage.type !== 'share' ? (
+                            {quoteMessage.type !== "share" ? (
                                 quoteMessage.msg
                             ) : (
                                 <FileDisplay fileData={JSON.parse(quoteMessage.msg)} isCurrentUser={false} />
@@ -194,7 +194,7 @@ export function MessageArea({
                                     onClick={handleUpload}
                                     className="cursor-pointer"
                                 >
-                                    {isUploading ? '上传中' : '分享'}
+                                    {isUploading ? "上传中" : "分享"}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -203,7 +203,7 @@ export function MessageArea({
                     <Input
                         disabled={isSending || !isConnected}
                         value={input}
-                        onChange={e => {
+                        onChange={(e) => {
                             onInputChange(e.target.value);
                         }}
                         onKeyDown={onKeyDown}
@@ -221,7 +221,7 @@ export function MessageArea({
                             })();
                         }}
                         size="icon-sm"
-                        disabled={isSending || !isConnected || input.trim() === ''}
+                        disabled={isSending || !isConnected || input.trim() === ""}
                     >
                         <SendIcon className="h-4 w-4" />
                     </Button>

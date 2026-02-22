@@ -1,4 +1,5 @@
 import { createMD5 } from "hash-wasm";
+import { toast } from "sonner";
 
 // 上传时所使用的UA
 export const UA =
@@ -34,28 +35,25 @@ export async function calcFileMD5(file: File): Promise<string> {
 
 // 此函数用于获取上传OSS的参数
 export async function getOSSUploadParams(filename: string, md5: string): Promise<UploadParam> {
-    const scenes = ["offline_python_assets", "editor_assets", "code_assets", "user_assets"];
-
-    for (const scene of scenes) {
-        try {
-            const response = await fetch(
-                `/xes/api/assets/get_oss_upload_params?scene=${scene}&md5=${md5}&filename=${encodeURIComponent(filename)}`,
-                {
-                    method: "GET",
-                    headers: {
-                        Authorization: AUTHORIZATION,
-                        "Content-Type": "application/json",
-                    },
+    try {
+        const response = await fetch(
+            `/xes/api/assets/get_oss_upload_params?scene=offline_python_assets&md5=${md5}&filename=${encodeURIComponent(filename)}`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: AUTHORIZATION,
+                    "Content-Type": "application/json",
                 },
-            );
+            },
+        );
 
-            if (response.ok) {
-                const data = (await response.json()) as { data: UploadParam };
-                return data.data;
-            }
-        } catch {
-            continue;
+        if (response.ok) {
+            const data = (await response.json()) as { data: UploadParam };
+            return data.data;
         }
+    } catch (error) {
+        toast.error("获取上传参数失败，请稍后再试");
+        console.error("获取上传参数失败", error);
     }
 
     throw new Error("获取上传参数失败");
