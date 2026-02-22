@@ -6,7 +6,7 @@ export function useUsername() {
     const [username, setUsername] = useState<string | null>(() => localStorage.getItem('username'));
 
     const startEditing = () => {
-        if (!username) throw new Error('请先设立一个用户名');
+        if (username === null) throw new Error('请先设立一个用户名');
 
         setEditInput(username);
         setIsEditing(true);

@@ -11,4 +11,13 @@ export default defineConfig({
             '@': path.resolve(__dirname, './src'),
         },
     },
+    server: {
+        proxy: {
+            '/xes/api': {
+                target: 'https://code.xueersi.com/api',
+                changeOrigin: true,
+                rewrite: path => path.replace(/^\/xes\/api/, ''),
+            },
+        },
+    },
 });

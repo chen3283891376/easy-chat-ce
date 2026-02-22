@@ -5,7 +5,11 @@ import { useState } from 'react';
 import { useUsername } from '@/hooks/useUsername.ts';
 import * as z from 'zod';
 import type { MouseEvent } from 'react';
-import { Label } from '@/components/ui/label';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+
+interface ValidationError {
+    message: string;
+}
 
 export default function InitProfilePage() {
     const [name, setName] = useState<string>('');
@@ -22,10 +26,10 @@ export default function InitProfilePage() {
         const result = usernameSchema.safeParse({ username: name });
 
         if (!result.success) {
-            let errors: Array<{ message: string }> = [];
+            let errors: ValidationError[] = [];
 
             try {
-                errors = JSON.parse(result.error.message);
+                errors = JSON.parse(result.error.message) as ValidationError[];
             } catch {
                 errors = [{ message: '验证失败' }];
             }
@@ -51,11 +55,19 @@ export default function InitProfilePage() {
                 </CardHeader>
 
                 <CardContent>
-                    <div className="flex flex-col gap-2">
-                        <Label>用户名</Label>
-                        <Input placeholder="请输入一个用户名" onChange={e => setName(e.target.value)} />
-                        {errorMessage && <span className="text-sm text-red-500">{errorMessage}</span>}
-                    </div>
+                    <Field data-invalid={errorMessage !== null && errorMessage.length > 0}>
+                        <FieldLabel>用户名</FieldLabel>
+                        <Input
+                            placeholder="请输入一个用户名"
+                            onChange={e => {
+                                setName(e.target.value);
+                            }}
+                            aria-invalid={errorMessage !== null && errorMessage.length > 0}
+                        />
+                        {errorMessage !== null && errorMessage.length > 0 && (
+                            <FieldDescription className="text-red-500">{errorMessage}</FieldDescription>
+                        )}
+                    </Field>
                 </CardContent>
 
                 <CardFooter>

@@ -1,22 +1,23 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, type KeyboardEvent } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FileUpIcon, SendIcon, XIcon } from 'lucide-react';
-import { MessageBubble, type Message as ChatMessage } from '@/components/MessageBuddle';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '../ui/alert-dialog';
+import { MessageBubble } from '@/components/MessageBuddle';
+import { type Message as ChatMessage } from '@/components/FileDisplay';
 import type { IFile } from '@/hooks/useChatMessages';
-import { FileDisplay } from '../FileDisplay';
+import { FileDisplay } from '@/components/FileDisplay';
+import UploadFile from '@/components/UploadFile.tsx';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog.tsx';
+import { useFileUpload } from '@/hooks/useFileUpload';
 
 const formatTime = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
@@ -32,10 +33,10 @@ interface MessageAreaProps {
     isSending: boolean;
     isConnected: boolean;
     onInputChange: (value: string) => void;
-    onSend: (quoteMessage?: ChatMessage) => void;
-    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+    onSend: (quoteMessage?: ChatMessage) => Promise<void> | void;
+    onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
     chatId: string;
-    sendFile: (file: IFile) => void;
+    sendFile: (file: IFile) => Promise<void> | void;
     handleRecall: (message: ChatMessage) => void;
 }
 
@@ -54,8 +55,10 @@ export function MessageArea({
 }: MessageAreaProps) {
     const [quoteMessage, setQuoteMessage] = useState<ChatMessage | undefined>(undefined);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
     const [userScrolled, setUserScrolled] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const { upload, isUploading } = useFileUpload();
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
         const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
@@ -69,7 +72,9 @@ export function MessageArea({
         };
 
         viewport.addEventListener('scroll', handleScroll);
-        return () => viewport.removeEventListener('scroll', handleScroll);
+        return () => {
+            viewport.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
     useEffect(() => {
@@ -87,6 +92,27 @@ export function MessageArea({
         roomName = '项目大群';
     }
 
+    const handleUpload = async () => {
+        if (selectedFile === null) return;
+
+        try {
+            const data = await upload(selectedFile);
+            sendFile(data);
+
+            setOpen(false);
+        } catch {
+            // 无需处理
+        } finally {
+            setSelectedFile(null);
+            setOpen(false);
+        }
+    };
+
+    const handleOpenChange = (isOpen: boolean) => {
+        setOpen(isOpen);
+        if (!isOpen) setSelectedFile(null);
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full">
             <div className="p-3 flex gap-2 border-b items-end shrink-0">
@@ -100,10 +126,10 @@ export function MessageArea({
                 ) : (
                     messages.map((message, index) => (
                         <MessageBubble
-                            key={`${message.time}-${index}`}
+                            key={`${String(message.time)}-${String(index)}`}
                             setQuoteMessage={setQuoteMessage}
                             quoteMessage={
-                                message.quoteTimeStamp
+                                message.quoteTimeStamp !== undefined && message.quoteTimeStamp !== 0
                                     ? messages.find(msg => msg.time === message.quoteTimeStamp)
                                     : undefined
                             }
@@ -130,7 +156,9 @@ export function MessageArea({
                         <Button
                             size="icon-xs"
                             className="absolute top-1 right-1"
-                            onClick={() => setQuoteMessage(undefined)}
+                            onClick={() => {
+                                setQuoteMessage(undefined);
+                            }}
                         >
                             <XIcon />
                         </Button>
@@ -138,47 +166,40 @@ export function MessageArea({
                 )}
 
                 <div className="flex gap-2 items-center shrink-0">
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                    <Dialog open={open} onOpenChange={handleOpenChange}>
+                        <DialogTrigger asChild>
                             <Button size="icon-sm" disabled={isSending || !isConnected}>
                                 <FileUpIcon />
                             </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>分享文件</AlertDialogTitle>
-                                <AlertDialogDescription className="w-full">
-                                    <iframe
-                                        className="w-full"
-                                        src="https://new-xes-pan.netlify.app/upload"
-                                        title="文件上传"
-                                    />
-                                    <p className="mt-2">请将文件在这里上传，然后把数据填入下方表单</p>
-                                    <Input placeholder="请输入给你的数据" ref={inputRef} className="mt-2" />
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>取消</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => {
-                                        try {
-                                            const fileData = JSON.parse(inputRef.current?.value || '');
-                                            sendFile(fileData);
-                                        } catch (error) {
-                                            console.error('解析文件数据失败:', error);
-                                        }
-                                    }}
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>分享文件</DialogTitle>
+                            </DialogHeader>
+                            <UploadFile setSelectedFile={setSelectedFile} />
+                            <DialogFooter>
+                                <DialogClose asChild>
+                                    <Button variant="secondary" className="cursor-pointer" disabled={isUploading}>
+                                        取消
+                                    </Button>
+                                </DialogClose>
+                                <Button
+                                    disabled={selectedFile === null || isUploading}
+                                    onClick={handleUpload}
+                                    className="cursor-pointer"
                                 >
-                                    分享
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                                    {isUploading ? '上传中' : '分享'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     <Input
                         disabled={isSending || !isConnected}
                         value={input}
-                        onChange={e => onInputChange(e.target.value)}
+                        onChange={e => {
+                            onInputChange(e.target.value);
+                        }}
                         onKeyDown={onKeyDown}
                         placeholder="请输入文本"
                         className="flex-1"
@@ -186,10 +207,12 @@ export function MessageArea({
 
                     <Button
                         onClick={() => {
-                            if (input.trim()) {
-                                onSend(quoteMessage);
-                                setQuoteMessage(undefined);
-                            }
+                            void (async () => {
+                                if (input.trim()) {
+                                    await onSend(quoteMessage);
+                                    setQuoteMessage(undefined);
+                                }
+                            })();
                         }}
                         size="icon-sm"
                         disabled={isSending || !isConnected || input.trim() === ''}

@@ -9,16 +9,7 @@ import {
     ContextMenuItem,
     ContextMenuTrigger,
 } from '@/components/ui/context-menu.tsx';
-import { FileDisplay } from './FileDisplay';
-
-export type Message = {
-    username: string;
-    msg: string;
-    time: number;
-    type?: 'name' | 'share';
-    recalled?: boolean;
-    quoteTimeStamp?: number;
-};
+import { FileDisplay, type Message } from './FileDisplay';
 
 type MessageBubbleProps = {
     quoteMessage?: Message;
@@ -27,33 +18,40 @@ type MessageBubbleProps = {
     formatTime: (timestamp: number) => string;
     handleRecall: (message: Message) => void;
     setQuoteMessage: (message: Message | undefined) => void;
+    keyString?: string;
 };
 
-export const MessageBubble = ({
+export function MessageBubble({
     quoteMessage,
     message,
     currentUsername,
     formatTime,
     handleRecall,
     setQuoteMessage,
-}: MessageBubbleProps) => {
+    keyString,
+}: MessageBubbleProps) {
     const isCurrentUser = message.username === currentUsername;
 
     let fileData: IFile | null = null;
+    let isMedia = false;
     if (message.type === 'share') {
         try {
             fileData = JSON.parse(message.msg);
+            const mediaExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'mp4', 'webm', 'mov', 'avi'];
+            const ext = fileData?.name?.split('.').pop()?.toLowerCase();
+            isMedia = mediaExtensions.includes(ext || '');
         } catch {
             fileData = null;
         }
     }
 
-    const downloadUrl = fileData?.link?.includes('python_assets/')
-        ? `https://livefile.xesimg.com/programme/python_assets/844958913c304c040803a9d7f79f898e.html?name=${fileData.name}&file=${fileData.link.split('python_assets/')[1]}`
-        : '';
+    const downloadUrl =
+        fileData?.link?.includes('python_assets/') === true
+            ? `https://livefile.xesimg.com/programme/python_assets/844958913c304c040803a9d7f79f898e.html?name=${fileData.name}&file=${fileData.link.split('python_assets/')[1]}`
+            : '';
 
     return (
-        <div className={cn('flex mb-4', isCurrentUser ? 'justify-end' : 'justify-start')}>
+        <div className={cn('flex mb-4', isCurrentUser ? 'justify-end' : 'justify-start')} key={keyString}>
             <div className={cn('max-w-[70%] flex items-start gap-3', isCurrentUser && 'flex-row-reverse')}>
                 <AvatarGroupCount>{message.username ? message.username[0] : '?'}</AvatarGroupCount>
                 <div className={cn('flex mb-2', isCurrentUser ? 'justify-end' : 'justify-start')}>
@@ -73,10 +71,12 @@ export const MessageBubble = ({
                                 <ContextMenuTrigger>
                                     <div
                                         className={cn(
-                                            'rounded-2xl px-4 py-2 shadow-sm',
-                                            isCurrentUser
-                                                ? 'bg-primary text-background rounded-br-none'
-                                                : 'bg-surface border border-border text-text-primary rounded-bl-none',
+                                            'rounded-2xl shadow-sm',
+                                            isMedia
+                                                ? 'bg-transparent p-0 rounded-none shadow-none'
+                                                : isCurrentUser
+                                                  ? 'bg-primary text-background rounded-br-none px-4 py-2'
+                                                  : 'bg-surface border border-border text-text-primary rounded-bl-none px-4 py-2',
                                         )}
                                     >
                                         {quoteMessage && (
@@ -111,7 +111,7 @@ export const MessageBubble = ({
                                     </div>
                                 </ContextMenuTrigger>
 
-                                {!message.recalled && (
+                                {message.recalled === false && (
                                     <ContextMenuContent>
                                         <ContextMenuGroup>
                                             {message.type === 'share' && downloadUrl && (
@@ -121,12 +121,20 @@ export const MessageBubble = ({
                                                 </ContextMenuItem>
                                             )}
                                             {isCurrentUser && !message.recalled && (
-                                                <ContextMenuItem onClick={() => handleRecall(message)}>
+                                                <ContextMenuItem
+                                                    onClick={() => {
+                                                        handleRecall(message);
+                                                    }}
+                                                >
                                                     <UndoIcon />
                                                     撤回
                                                 </ContextMenuItem>
                                             )}
-                                            <ContextMenuItem onClick={() => setQuoteMessage(message)}>
+                                            <ContextMenuItem
+                                                onClick={() => {
+                                                    setQuoteMessage(message);
+                                                }}
+                                            >
                                                 <QuoteIcon />
                                                 引用
                                             </ContextMenuItem>
@@ -140,4 +148,4 @@ export const MessageBubble = ({
             </div>
         </div>
     );
-};
+}

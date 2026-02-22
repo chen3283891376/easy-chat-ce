@@ -6,9 +6,10 @@ import { ChatRoomSidebar } from '@/components/ChatRoom/ChatRoomSidebar';
 import { MessageArea } from './components/ChatRoom/MessageArea';
 import InitProfilePage from '@/pages/InitProfile.tsx';
 import type { KeyboardEvent } from 'react';
-import type { Message as ChatMessage } from '@/components/MessageBuddle';
+import type { Message as ChatMessage } from '@/components/FileDisplay';
+import { toast } from 'sonner';
 
-function App() {
+export default function App() {
     const {
         username,
         isEditing: isEditingName,
@@ -19,7 +20,25 @@ function App() {
         saveUsername,
     } = useUsername();
 
-    const { chatId, setChatId, roomList, isCreatingRoom, createRoom, joinRoom, deleteRoom } = useRoomManager(185655560);
+    const {
+        chatId,
+        setChatId,
+        roomList,
+        isCreatingRoom,
+        joinRoom,
+        deleteRoom,
+        showNameInput,
+        showIDInput,
+        pendingRoomName,
+        setPendingRoomName,
+        pendingRoomID,
+        setPendingRoomID,
+        startCreateRoom,
+        startJoinRoom,
+        confirmCreateRoom,
+        cancelCreateRoom,
+        cancelJoinRoom,
+    } = useRoomManager(185655560);
 
     const { messages, isSending, sendMessage, sendFile, recallMessage } = useChatMessages(
         chatId,
@@ -30,19 +49,25 @@ function App() {
 
     const handleSend = async (quoteMessage?: ChatMessage) => {
         const success = await sendMessage(input, quoteMessage);
-        if (success) setInput('');
+        if (success) {
+            setInput('');
+            toast.info('发送成功');
+        } else {
+            setInput('');
+            toast.error('发送失败');
+        }
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSend();
+            void handleSend();
         }
     };
 
     const isConnected = Boolean(chatId);
 
-    if (!username) return <InitProfilePage />;
+    if (username === null) return <InitProfilePage />;
 
     return (
         <div className="h-screen flex">
@@ -55,13 +80,25 @@ function App() {
                     editNameInput={editNameInput}
                     isCreatingRoom={isCreatingRoom}
                     isConnected={isConnected}
+                    showNameInput={showNameInput}
+                    showIDInput={showIDInput}
+                    pendingRoomName={pendingRoomName}
+                    pendingRoomID={pendingRoomID}
                     onRoomSelect={setChatId}
                     onRoomDelete={deleteRoom}
                     onUsernameEditStart={startNameEdit}
                     onUsernameEditCancel={cancelNameEdit}
                     onUsernameEditInputChange={setEditNameInput}
                     onUsernameSave={saveUsername}
-                    onCreateRoom={() => createRoom(username)}
+                    onStartCreateRoom={() => {
+                        startCreateRoom(username);
+                    }}
+                    onStartJoinRoom={startJoinRoom}
+                    onPendingRoomNameChange={setPendingRoomName}
+                    onPendingRoomIDChange={setPendingRoomID}
+                    onConfirmCreateRoom={confirmCreateRoom}
+                    onCancelCreateRoom={cancelCreateRoom}
+                    onCancelJoinRoom={cancelJoinRoom}
                     onJoinRoom={joinRoom}
                 />
 
@@ -76,11 +113,11 @@ function App() {
                     onKeyDown={handleKeyDown}
                     chatId={chatId.toString()}
                     sendFile={sendFile}
-                    handleRecall={(message: ChatMessage) => recallMessage(message.time)}
+                    handleRecall={(message: ChatMessage) => {
+                        void recallMessage(message.time);
+                    }}
                 />
             </>
         </div>
     );
 }
-
-export default App;

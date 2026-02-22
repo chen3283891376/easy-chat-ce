@@ -25,14 +25,24 @@ interface ChatRoomSidebarProps {
     editNameInput: string;
     isCreatingRoom: boolean;
     isConnected: boolean;
+    showNameInput: boolean;
+    showIDInput: boolean;
+    pendingRoomName: string;
+    pendingRoomID: string;
     onRoomSelect: (roomId: number) => void;
     onRoomDelete: (roomId: number) => void;
     onUsernameEditStart: () => void;
     onUsernameEditCancel: () => void;
     onUsernameEditInputChange: (value: string) => void;
     onUsernameSave: (newName: string) => void;
-    onCreateRoom: () => void;
-    onJoinRoom: (roomId: string | null) => void;
+    onStartCreateRoom: () => void;
+    onStartJoinRoom: () => void;
+    onPendingRoomNameChange: (value: string) => void;
+    onPendingRoomIDChange: (value: string) => void;
+    onConfirmCreateRoom: () => Promise<void>;
+    onCancelCreateRoom: () => void;
+    onCancelJoinRoom: () => void;
+    onJoinRoom: (roomIdInput: string | null) => Promise<void>;
 }
 
 export function ChatRoomSidebar({
@@ -43,13 +53,23 @@ export function ChatRoomSidebar({
     editNameInput,
     isCreatingRoom,
     isConnected,
+    showNameInput,
+    showIDInput,
+    pendingRoomName,
+    pendingRoomID,
     onRoomSelect,
     onRoomDelete,
     onUsernameEditStart,
     onUsernameEditCancel,
     onUsernameEditInputChange,
     onUsernameSave,
-    onCreateRoom,
+    onStartCreateRoom,
+    onStartJoinRoom,
+    onPendingRoomNameChange,
+    onPendingRoomIDChange,
+    onConfirmCreateRoom,
+    onCancelCreateRoom,
+    onCancelJoinRoom,
     onJoinRoom,
 }: ChatRoomSidebarProps) {
     return (
@@ -65,7 +85,9 @@ export function ChatRoomSidebar({
                                         <Button
                                             disabled={!isConnected}
                                             variant={currentRoomId === item.id ? 'default' : 'secondary'}
-                                            onClick={() => onRoomSelect(item.id)}
+                                            onClick={() => {
+                                                onRoomSelect(item.id);
+                                            }}
                                             className="w-full"
                                         >
                                             {item.id === 185655560 ? '项目大群' : item.title}
@@ -86,7 +108,9 @@ export function ChatRoomSidebar({
                                             </ContextMenuItem>
                                             <ContextMenuItem
                                                 disabled={!isConnected}
-                                                onClick={() => onRoomSelect(item.id)}
+                                                onClick={() => {
+                                                    onRoomSelect(item.id);
+                                                }}
                                             >
                                                 进入
                                                 <ContextMenuShortcut>
@@ -111,11 +135,19 @@ export function ChatRoomSidebar({
                         <>
                             <Input
                                 value={editNameInput}
-                                onChange={e => onUsernameEditInputChange(e.target.value)}
+                                onChange={e => {
+                                    onUsernameEditInputChange(e.target.value);
+                                }}
                                 placeholder="请输入用户名"
                                 className="w-24"
                             />
-                            <Button variant="ghost" size="icon-sm" onClick={() => onUsernameSave(editNameInput)}>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => {
+                                    onUsernameSave(editNameInput);
+                                }}
+                            >
                                 <CheckIcon className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon-sm" onClick={onUsernameEditCancel}>
@@ -135,22 +167,80 @@ export function ChatRoomSidebar({
                 <Separator className="my-4" />
 
                 <div className="mt-4 flex flex-col gap-2">
-                    <Button disabled={isCreatingRoom || !isConnected} size="sm" onClick={onCreateRoom}>
+                    <Button
+                        disabled={isCreatingRoom || !isConnected || showNameInput}
+                        size="sm"
+                        onClick={onStartCreateRoom}
+                    >
                         <PlusIcon className="h-4 w-4 mr-1" />
                         创建房间
                     </Button>
+
+                    {showNameInput && (
+                        <div className="flex flex-col gap-2 p-2 border rounded bg-white">
+                            <Input
+                                value={pendingRoomName}
+                                onChange={e => {
+                                    onPendingRoomNameChange(e.target.value);
+                                }}
+                                placeholder="请输入房间名称"
+                                autoFocus
+                            />
+                            <div className="flex gap-1">
+                                <Button
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        void onConfirmCreateRoom();
+                                    }}
+                                    disabled={pendingRoomName.length === 0}
+                                >
+                                    确认
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={onCancelCreateRoom}>
+                                    取消
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
                     <Button
                         variant="outline"
                         size="sm"
-                        disabled={isCreatingRoom}
-                        onClick={() => {
-                            const roomId = window.prompt('请输入房间ID：');
-                            onJoinRoom(roomId);
-                        }}
+                        disabled={isCreatingRoom || !isConnected || showIDInput}
+                        onClick={onStartJoinRoom}
                     >
                         <LogInIcon className="h-4 w-4 mr-1" />
                         加入房间
                     </Button>
+
+                    {showIDInput && (
+                        <div className="flex flex-col gap-2 p-2 border rounded bg-white">
+                            <Input
+                                value={pendingRoomID}
+                                onChange={e => {
+                                    onPendingRoomIDChange(e.target.value);
+                                }}
+                                placeholder="请输入房间ID"
+                                autoFocus
+                            />
+                            <div className="flex gap-1">
+                                <Button
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        void onJoinRoom(pendingRoomID);
+                                    }}
+                                    disabled={pendingRoomID.length === 0}
+                                >
+                                    确认
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={onCancelJoinRoom}>
+                                    取消
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

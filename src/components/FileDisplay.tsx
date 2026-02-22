@@ -45,9 +45,15 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
     const [videoError, setVideoError] = useState(false);
     const [previewOpen, setPreviewOpen] = useState(false);
 
-    const resetImageError = () => setImageError(false);
-    const resetAudioError = () => setAudioError(false);
-    const resetVideoError = () => setVideoError(false);
+    const resetImageError = () => {
+        setImageError(false);
+    };
+    const resetAudioError = () => {
+        setAudioError(false);
+    };
+    const resetVideoError = () => {
+        setVideoError(false);
+    };
 
     const downloadUrl = fileData?.link?.includes('python_assets/')
         ? `https://livefile.xesimg.com/programme/python_assets/844958913c304c040803a9d7f79f898e.html?name=${fileData.name}&file=${fileData.link.split('python_assets/')[1]}`
@@ -67,8 +73,14 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                                 <img
                                     src={fileData?.link}
                                     alt={fileData?.name}
-                                    className="max-w-full max-h-64 rounded-t-2xl rounded-br-2xl object-contain cursor-zoom-in"
-                                    onError={() => setImageError(true)}
+                                    className={cn(
+                                        'max-w-full max-h-64 rounded-t-2xl object-contain cursor-zoom-in',
+
+                                        isCurrentUser ? 'rounded-bl-2xl' : 'rounded-br-2xl',
+                                    )}
+                                    onError={() => {
+                                        setImageError(true);
+                                    }}
                                     onLoad={resetImageError}
                                 />
                             ) : (
@@ -76,7 +88,9 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                                     src={fileData?.link}
                                     controls
                                     className="max-w-full max-h-64 rounded-t-2xl rounded-br-2xl object-contain cursor-zoom-in"
-                                    onError={() => setVideoError(true)}
+                                    onError={() => {
+                                        setVideoError(true);
+                                    }}
                                     onLoad={resetVideoError}
                                 />
                             )}
@@ -113,7 +127,9 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                         title="下载"
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
+                        onClick={e => {
+                            e.stopPropagation();
+                        }}
                     >
                         <DownloadIcon size={18} />
                     </a>
@@ -147,7 +163,9 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                         </div>
                         <div className="flex-1 min-w-25">
                             <p className="text-sm font-medium truncate">{fileData?.name || '未知文件名'}</p>
-                            <p className="text-xs text-gray-500">{fileData?.size || '未知大小'}</p>
+                            <p className={cn('text-xs', isCurrentUser ? 'text-gray-300' : 'text-gray-500')}>
+                                {fileData?.size || '未知大小'}
+                            </p>
                         </div>
                         <a
                             href={downloadUrl}
@@ -167,7 +185,9 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                             src={fileData?.link}
                             controls
                             className={cn('w-full h-10', isCurrentUser ? 'bg-white/10' : 'bg-background')}
-                            onError={() => setAudioError(true)}
+                            onError={() => {
+                                setAudioError(true);
+                            }}
                             onLoad={resetAudioError}
                         />
                     )}

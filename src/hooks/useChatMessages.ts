@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { XESCloudValue, MessageCacheManager } from '@/lib/XesCloud';
-import type { Message as ChatMessage, Message } from '@/components/MessageBuddle';
+import type { Message as ChatMessage, Message } from '@/components/FileDisplay';
 
 export interface IFile {
     name: string;
@@ -61,7 +61,9 @@ export function useChatMessages(chatId: number, username: string) {
 
     useEffect(() => {
         startPolling();
-        return () => stopPolling();
+        return () => {
+            stopPolling();
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chatId]);
 

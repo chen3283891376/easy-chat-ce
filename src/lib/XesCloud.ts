@@ -1,7 +1,8 @@
-// Copyright (c) 2026 littlefish1145(https://github.com/littlefish1145), Inc.
+// Copyright (c) 2026 littlefish1145(https://github.com/littlefish1145 ), Inc.
 // Licensed under the MIT license.
 
 // This file is modified from http://75.127.89.226:8000/root/easy-chat-nextjs-refactor/-/blob/main/lib/xes-cloud.ts?ref_type=heads
+// 好大一坨石山 —— 来自Aur
 const isBrowser = typeof window !== 'undefined';
 
 interface LRUCacheConfig {
@@ -83,6 +84,15 @@ const DEFAULT_MESSAGE_CACHE_CONFIG: MessageCacheConfig = {
     version: 1,
 };
 
+interface WsMessage {
+    method?: string;
+    reply?: string;
+    name?: string;
+    value?: string;
+    user?: string;
+    project_id?: string;
+}
+
 class MessageCacheManager {
     private memoryCache: LRUCache<string, Record<string, string>>;
     private config: MessageCacheConfig;
@@ -118,7 +128,7 @@ class MessageCacheManager {
         this.memoryCache.delete(this.getCacheKey(chatId));
         if (!isBrowser) return;
         try {
-            localStorage.removeItem(MessageCacheManager.STORAGE_PREFIX + chatId);
+            localStorage.removeItem(MessageCacheManager.STORAGE_PREFIX + String(chatId));
         } catch (e) {
             console.warn('Failed to clear localStorage:', e);
         }
@@ -131,11 +141,13 @@ class MessageCacheManager {
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith(MessageCacheManager.STORAGE_PREFIX)) {
+                if (key !== null && key.length > 0 && key.startsWith(MessageCacheManager.STORAGE_PREFIX)) {
                     keysToRemove.push(key);
                 }
             }
-            keysToRemove.forEach(key => localStorage.removeItem(key));
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+            });
         } catch (e) {
             console.warn('Failed to clear all localStorage entries:', e);
         }
@@ -152,12 +164,12 @@ class MessageCacheManager {
     private getFromLocalStorage(chatId: number): Record<string, string> | null {
         if (!isBrowser) return null;
         try {
-            const key = MessageCacheManager.STORAGE_PREFIX + chatId;
+            const key = MessageCacheManager.STORAGE_PREFIX + String(chatId);
             const stored = localStorage.getItem(key);
-            if (!stored) {
+            if (stored === null || stored.length === 0) {
                 return null;
             }
-            const entry: CacheEntry<Record<string, string>> = JSON.parse(stored);
+            const entry: CacheEntry<Record<string, string>> = JSON.parse(stored) as CacheEntry<Record<string, string>>;
             if (entry.version !== this.config.version) {
                 localStorage.removeItem(key);
                 return null;
@@ -182,7 +194,7 @@ class MessageCacheManager {
     private setToLocalStorage(chatId: number, messages: Record<string, string>): void {
         if (!isBrowser) return;
         try {
-            const key = MessageCacheManager.STORAGE_PREFIX + chatId;
+            const key = MessageCacheManager.STORAGE_PREFIX + String(chatId);
             const entry: CacheEntry<Record<string, string>> = {
                 data: messages,
                 timestamp: Date.now(),
@@ -201,11 +213,11 @@ class MessageCacheManager {
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith(MessageCacheManager.STORAGE_PREFIX)) {
+                if (key !== null && key.length > 0 && key.startsWith(MessageCacheManager.STORAGE_PREFIX)) {
                     const stored = localStorage.getItem(key);
-                    if (stored) {
+                    if (stored !== null && stored.length > 0) {
                         try {
-                            const entry: CacheEntry<unknown> = JSON.parse(stored);
+                            const entry: CacheEntry<unknown> = JSON.parse(stored) as CacheEntry<unknown>;
                             if (
                                 entry.version !== this.config.version ||
                                 now - entry.timestamp > this.config.localStorageExpiry
@@ -218,7 +230,9 @@ class MessageCacheManager {
                     }
                 }
             }
-            keysToRemove.forEach(key => localStorage.removeItem(key));
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+            });
         } catch (e) {
             console.warn('Failed to cleanup expired entries:', e);
         }
@@ -234,14 +248,14 @@ class XESCloudValueData {
     constructor(projectId: string) {
         this.projectId = projectId;
     }
-    handshakeData() {
+    handshakeData(): Record<string, string> {
         return {
             method: 'handshake',
             user: '16641346',
             project_id: this.projectId,
         };
     }
-    uploadData(name: string, value: string) {
+    uploadData(name: string, value: string): Record<string, string> {
         return {
             method: 'set',
             user: '16641346',
@@ -256,26 +270,29 @@ const globalCache = new Map<string, { data: Record<string, string>; timestamp: n
 const pendingRequests = new Map<string, Promise<Record<string, string>>>();
 const CACHE_TTL = 2000;
 
+interface WriteTask<T> {
+    task: () => Promise<T>;
+    resolve: (value: T) => void;
+    reject: (reason?: Error) => void;
+}
+
+interface WriteResolver {
+    resolve: (event: MessageEvent) => void;
+    reject: (reason: Error) => void;
+    timeoutId: ReturnType<typeof setTimeout>;
+}
+
 export class XESCloudValue {
     valueData: XESCloudValueData;
-    private url: string;
-    private projectId: string;
+    private readonly url: string;
+    private readonly projectId: string;
     private cacheManager: MessageCacheManager;
 
-    // 新增：写入专用 WebSocket 连接及队列管理
     private writeWs: WebSocket | null = null;
     private writeConnecting: Promise<WebSocket> | null = null;
-    private writeTaskQueue: Array<{
-        task: () => Promise<any>;
-        resolve: (value: any) => void;
-        reject: (reason?: any) => void;
-    }> = [];
+    private writeTaskQueue: WriteTask<unknown>[] = [];
     private isProcessingQueue = false;
-    private currentWriteResolver: {
-        resolve: (event: MessageEvent) => void;
-        reject: (reason?: any) => void;
-        timeoutId: ReturnType<typeof setTimeout>;
-    } | null = null;
+    private currentWriteResolver: WriteResolver | null = null;
 
     constructor(projectId: string, cacheConfig?: Partial<MessageCacheConfig>) {
         this.projectId = projectId;
@@ -284,14 +301,11 @@ export class XESCloudValue {
         this.cacheManager = new MessageCacheManager(cacheConfig);
     }
 
-    /**
-     * 确保写入连接已建立并可用
-     */
     private async ensureWriteConnection(timeout: number): Promise<WebSocket> {
-        if (this.writeWs && this.writeWs.readyState === WebSocket.OPEN) {
+        if (this.writeWs !== null && this.writeWs.readyState === WebSocket.OPEN) {
             return this.writeWs;
         }
-        if (this.writeConnecting) {
+        if (this.writeConnecting !== null) {
             return this.writeConnecting;
         }
         this.writeConnecting = new Promise((resolve, reject) => {
@@ -309,26 +323,24 @@ export class XESCloudValue {
             };
 
             ws.onmessage = event => {
-                // 统一处理 ping
                 try {
-                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
+                    const data: WsMessage = typeof event.data === 'string' ? (JSON.parse(event.data) as WsMessage) : {};
                     if (data.method === 'ping') {
                         ws.send(JSON.stringify({ method: 'pong' }));
                         return;
                     }
                 } catch {
-                    // 忽略解析错误
+                    // 忽略
                 }
 
-                // 将消息交给当前等待的处理器
-                if (this.currentWriteResolver) {
+                if (this.currentWriteResolver !== null) {
                     this.currentWriteResolver.resolve(event);
                 }
             };
 
-            ws.onerror = err => {
+            ws.onerror = () => {
                 clearTimeout(timeoutId);
-                reject(err);
+                reject(new Error('WebSocket error'));
                 this.cleanupWriteConnection();
             };
 
@@ -339,77 +351,66 @@ export class XESCloudValue {
         return this.writeConnecting;
     }
 
-    /**
-     * 清理写入连接及状态，并拒绝队列中所有剩余任务
-     */
-    private cleanupWriteConnection() {
-        if (this.writeWs) {
+    private cleanupWriteConnection(): void {
+        if (this.writeWs !== null) {
             this.writeWs.close();
             this.writeWs = null;
         }
         this.writeConnecting = null;
 
-        // 拒绝当前等待的请求
-        if (this.currentWriteResolver) {
+        if (this.currentWriteResolver !== null) {
             clearTimeout(this.currentWriteResolver.timeoutId);
             this.currentWriteResolver.reject(new Error('连接已关闭'));
             this.currentWriteResolver = null;
         }
 
-        // 拒绝队列中所有剩余任务，避免内存泄漏
         while (this.writeTaskQueue.length > 0) {
             const item = this.writeTaskQueue.shift();
-            item?.reject(new Error('连接已关闭，任务取消'));
+            if (item !== undefined) {
+                item.reject(new Error('连接已关闭，任务取消'));
+            }
         }
     }
 
-    /**
-     * 将写入任务加入队列，并返回一个 Promise
-     */
     private enqueueWriteTask<T>(task: () => Promise<T>): Promise<T> {
         return new Promise((resolve, reject) => {
-            this.writeTaskQueue.push({ task, resolve, reject });
-            this.processWriteQueue();
+            this.writeTaskQueue.push({
+                task,
+                resolve: resolve as (value: unknown) => void,
+                reject: reject as (reason?: Error) => void,
+            });
+            void this.processWriteQueue();
         });
     }
 
-    /**
-     * 处理队列中的下一个任务
-     */
-    private async processWriteQueue() {
+    private async processWriteQueue(): Promise<void> {
         if (this.isProcessingQueue || this.writeTaskQueue.length === 0) {
             return;
         }
         this.isProcessingQueue = true;
 
         while (this.writeTaskQueue.length > 0) {
-            const next = this.writeTaskQueue[0];
-            if (!next) break;
+            const next = this.writeTaskQueue.shift();
+            if (next === undefined) break;
 
             try {
                 const result = await next.task();
-                // 任务成功，从队列中移除并 resolve
                 this.writeTaskQueue.shift();
                 next.resolve(result);
             } catch (error) {
-                // 任务失败，从队列中移除并 reject
                 this.writeTaskQueue.shift();
-                next.reject(error);
+                next.reject(error instanceof Error ? error : new Error(String(error)));
             }
         }
 
         this.isProcessingQueue = false;
     }
 
-    /**
-     * 底层发送单个请求并等待 ack（需确保在任务队列中调用）
-     */
-    private async doWrite(request: any, timeout: number): Promise<any> {
+    private async doWrite(request: Record<string, string>, timeout: number): Promise<WsMessage> {
         const ws = await this.ensureWriteConnection(timeout);
 
         return new Promise((resolve, reject) => {
-            if (this.currentWriteResolver) {
-                // 不应该发生，因为任务队列保证了串行
+            if (this.currentWriteResolver !== null) {
                 reject(new Error('上一个请求尚未完成'));
                 return;
             }
@@ -421,24 +422,25 @@ export class XESCloudValue {
                 }
             }, timeout);
 
-            const resolver = {
+            const resolver: WriteResolver = {
                 resolve: (event: MessageEvent) => {
                     clearTimeout(timeoutId);
                     if (this.currentWriteResolver === resolver) {
                         this.currentWriteResolver = null;
                         try {
-                            const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
+                            const data: WsMessage =
+                                typeof event.data === 'string' ? (JSON.parse(event.data) as WsMessage) : {};
                             if (data.method === 'ack') {
                                 resolve(data);
                             } else {
                                 reject(new Error('非预期的响应'));
                             }
                         } catch (e) {
-                            reject(e);
+                            reject(e instanceof Error ? e : new Error(String(e)));
                         }
                     }
                 },
-                reject: (err: any) => {
+                reject: (err: Error) => {
                     clearTimeout(timeoutId);
                     if (this.currentWriteResolver === resolver) {
                         this.currentWriteResolver = null;
@@ -455,25 +457,18 @@ export class XESCloudValue {
             } catch (err) {
                 this.currentWriteResolver = null;
                 clearTimeout(timeoutId);
-                reject(err);
+                reject(err instanceof Error ? err : new Error(String(err)));
             }
         });
     }
 
-    // ========== 公共方法，保持签名不变 ==========
-
     async sendNum(name: string, num: string, timeout: number = 30000): Promise<string> {
-        if (typeof num !== 'string') {
-            throw new Error('num must be a string');
-        }
         if (num === '') {
             throw new Error('the num is null, please input a num');
         }
 
-        // 清除缓存（保持原行为）
         globalCache.delete(this.projectId);
 
-        // 将单个发送包装为任务
         return this.enqueueWriteTask(async () => {
             const request = this.valueData.uploadData(name, num);
             const response = await this.doWrite(request, timeout);
@@ -487,12 +482,12 @@ export class XESCloudValue {
 
     async getAllNum(timeout: number = 30000): Promise<Record<string, string>> {
         const cached = globalCache.get(this.projectId);
-        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        if (cached !== undefined && Date.now() - cached.timestamp < CACHE_TTL) {
             return cached.data;
         }
 
         const pending = pendingRequests.get(this.projectId);
-        if (pending) {
+        if (pending !== undefined) {
             return pending;
         }
 
@@ -502,7 +497,7 @@ export class XESCloudValue {
                 pendingRequests.delete(this.projectId);
                 return data;
             })
-            .catch(error => {
+            .catch((error: unknown) => {
                 pendingRequests.delete(this.projectId);
                 throw error;
             });
@@ -537,7 +532,7 @@ export class XESCloudValue {
                 if (completed) return;
 
                 try {
-                    const data = typeof event.data === 'string' ? JSON.parse(event.data) : {};
+                    const data: WsMessage = typeof event.data === 'string' ? (JSON.parse(event.data) as WsMessage) : {};
 
                     if (data.method === 'ping') {
                         ws.send(JSON.stringify({ method: 'pong' }));
@@ -550,17 +545,17 @@ export class XESCloudValue {
                     }
 
                     if (data.name !== undefined && data.value !== undefined) {
-                        const name = String(data.name);
-                        const value = String(data.value);
+                        const nameStr = data.name satisfies string;
+                        const valueStr = data.value satisfies string;
 
-                        if (name in result) {
+                        if (nameStr in result) {
                             completed = true;
                             clearTimeout(timeoutId);
                             ws.close();
                             resolve(result);
                             return;
                         }
-                        result[name] = value;
+                        result[nameStr] = valueStr;
                         ws.send(JSON.stringify(this.valueData.handshakeData()));
                     }
                 } catch (e) {
@@ -590,20 +585,18 @@ export class XESCloudValue {
         dic: Record<string, string>,
         timeout: number = 80000,
     ): Promise<Array<{ name: string; reply: string }>> {
-        if (!dic || Object.keys(dic).length === 0) {
+        if (Object.keys(dic).length === 0) {
             throw new Error('the num is null, please input a num');
         }
 
         globalCache.delete(this.projectId);
 
-        // 将整个批量发送包装为一个任务，内部顺序执行每个发送
         return this.enqueueWriteTask(async () => {
             const entries = Object.entries(dic);
             const results: Array<{ name: string; reply: string }> = [];
             const startTime = Date.now();
 
             for (const [name, num] of entries) {
-                // 计算剩余超时时间
                 const elapsed = Date.now() - startTime;
                 const remainingTimeout = Math.max(1, timeout - elapsed);
 
@@ -615,15 +608,12 @@ export class XESCloudValue {
                         reply: response.reply === 'OK' ? 'success' : 'fail',
                     });
                 } catch (error) {
-                    // 超时或其他错误，记为 fail
                     results.push({ name, reply: 'fail' });
-                    // 如果超时，不再继续发送（与原逻辑一致：超时后 resolve 已获得的结果）
                     if (error instanceof Error && error.message === '请求超时') {
                         break;
                     }
                 }
 
-                // 如果总时间已超时，停止发送
                 if (Date.now() - startTime >= timeout) {
                     break;
                 }
@@ -662,13 +652,5 @@ export class XESCloudValue {
     }
 }
 
-// ========== 导出所有需要对外暴露的类与类型 ==========
 export { LRUCache, MessageCacheManager };
-export type { Message, MessageCacheConfig, LRUCacheConfig, CacheEntry };
-
-interface Message {
-    id: string;
-    name: string;
-    value: string;
-    timestamp?: number;
-}
+export type { MessageCacheConfig, LRUCacheConfig, CacheEntry };
