@@ -12,6 +12,8 @@ import {
     ContextMenuTrigger,
 } from "@/components/ui/context-menu.tsx";
 import type { Room } from "@/lib/types";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { useState } from "react";
 
 interface ChatRoomSidebarProps {
     roomList: Room[];
@@ -25,6 +27,7 @@ interface ChatRoomSidebarProps {
     showIDInput: boolean;
     pendingRoomName: string;
     pendingRoomID: string;
+    setRoomList: (_roomList: Room[]) => void;
     onRoomSelect: (_roomId: number) => void;
     onRoomDelete: (_roomId: number) => void;
     onUsernameEditStart: () => void;
@@ -53,6 +56,7 @@ export function ChatRoomSidebar({
     showIDInput,
     pendingRoomName,
     pendingRoomID,
+    setRoomList,
     onRoomSelect,
     onRoomDelete,
     onUsernameEditStart,
@@ -68,6 +72,22 @@ export function ChatRoomSidebar({
     onCancelJoinRoom,
     onJoinRoom,
 }: ChatRoomSidebarProps) {
+    const [renamingRoomId, setRenamingRoomId] = useState<number | null>(null);
+    const [renameInputValue, setRenameInputValue] = useState("");
+
+    const handleRename = () => {
+        if (!renameInputValue.trim()) return;
+        const newRoomList = [...roomList];
+        const roomIndex = roomList.findIndex((room) => room.id === renamingRoomId);
+        if (roomIndex >= 0) {
+            newRoomList[roomIndex].title = renameInputValue;
+            setRoomList(newRoomList);
+            localStorage.setItem("roomList", JSON.stringify(newRoomList));
+        }
+        setRenamingRoomId(null);
+        setRenameInputValue("");
+    };
+
     return (
         <div className="w-56 p-4 bg-gray-50 flex flex-col justify-between border-r">
             <div className="h-full">
@@ -111,6 +131,20 @@ export function ChatRoomSidebar({
                                                 进入
                                                 <ContextMenuShortcut>
                                                     <LogInIcon />
+                                                </ContextMenuShortcut>
+                                            </ContextMenuItem>
+
+                                            <ContextMenuItem
+                                                disabled={!isConnected}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setRenamingRoomId(item.id);
+                                                    setRenameInputValue(item.title);
+                                                }}
+                                            >
+                                                重命名
+                                                <ContextMenuShortcut>
+                                                    <EditIcon />
                                                 </ContextMenuShortcut>
                                             </ContextMenuItem>
                                         </ContextMenuGroup>
@@ -239,6 +273,47 @@ export function ChatRoomSidebar({
                     )}
                 </div>
             </div>
+
+            <Dialog
+                open={renamingRoomId !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setRenamingRoomId(null);
+                        setRenameInputValue("");
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>重命名房间</DialogTitle>
+                    </DialogHeader>
+                    <Input
+                        placeholder="请输入新的房间名"
+                        value={renameInputValue}
+                        autoFocus
+                        onChange={(e) => setRenameInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && renameInputValue.trim()) {
+                                handleRename();
+                            }
+                        }}
+                    />
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setRenamingRoomId(null);
+                                setRenameInputValue("");
+                            }}
+                        >
+                            取消
+                        </Button>
+                        <Button onClick={handleRename} disabled={!renameInputValue.trim()}>
+                            确认
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

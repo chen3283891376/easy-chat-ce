@@ -18,6 +18,7 @@ interface UseRoomManagerReturn {
     chatId: number;
     setChatId: (_id: number) => void;
     roomList: Room[];
+    setRoomList: (_list: Room[]) => void;
     isCreatingRoom: boolean;
     createRoom: (_username: string, _roomName: string) => Promise<number | null>;
     joinRoom: (_roomIdInput: string | null) => Promise<void>;
@@ -178,6 +179,7 @@ export function useRoomManager(initialChatId: number): UseRoomManagerReturn {
         chatId,
         setChatId,
         roomList,
+        setRoomList,
         isCreatingRoom,
         createRoom,
         joinRoom,

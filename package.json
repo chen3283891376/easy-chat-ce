@@ -8,7 +8,8 @@
         "build": "tsc -b && vite build",
         "lint": "oxlint .",
         "preview": "vite preview",
-        "format": "oxfmt --write ."
+        "format": "oxfmt --write .",
+        "fuck-u-code": "fuck-u-code analyze ./src -l zh"
     },
     "dependencies": {
         "@alova/adapter-xhr": "^2.3.1",

@@ -24,6 +24,7 @@ export default function App() {
         chatId,
         setChatId,
         roomList,
+        setRoomList,
         isCreatingRoom,
         joinRoom,
         deleteRoom,
@@ -84,6 +85,7 @@ export default function App() {
                     showIDInput={showIDInput}
                     pendingRoomName={pendingRoomName}
                     pendingRoomID={pendingRoomID}
+                    setRoomList={setRoomList}
                     onRoomSelect={setChatId}
                     onRoomDelete={deleteRoom}
                     onUsernameEditStart={startNameEdit}
