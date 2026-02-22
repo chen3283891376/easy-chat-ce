@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/context-menu.tsx";
 import { FileDisplay } from "./FileDisplay";
 import type { Message } from "@/lib/types";
+import { toast } from "sonner";
 
 interface MessageBubbleProps {
     quoteMessage?: Message;
@@ -134,7 +135,10 @@ export function MessageBubble({
                                                 <ContextMenuItem
                                                     onClick={() => {
                                                         if (downloadUrl !== "") {
-                                                            window.open(downloadUrl, "_blank");
+                                                            const newWindow = window.open(downloadUrl, "_blank");
+                                                            if (!newWindow) {
+                                                                toast.error("弹窗被拦截，请允许浏览器弹窗后重试");
+                                                            }
                                                         }
                                                     }}
                                                 >

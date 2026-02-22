@@ -9,25 +9,22 @@ interface FileDisplayProps {
     isCurrentUser?: boolean;
 }
 
-function isImageFile(filename: string): boolean {
-    const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+function checkFileExtension(filename: string, allowedExtensions: string[]): boolean {
     if (!filename || filename.length === 0) return false;
     const ext = filename.split(".").pop();
-    return ext !== undefined && ext !== null && imageExtensions.includes(ext.toLowerCase());
+    return ext !== undefined && ext !== null && allowedExtensions.includes(ext.toLowerCase());
+}
+
+function isImageFile(filename: string): boolean {
+    return checkFileExtension(filename, ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"]);
 }
 
 function isAudioFile(filename: string): boolean {
-    const audioExtensions = ["mp3", "wav", "ogg", "aac", "flac"];
-    if (!filename || filename.length === 0) return false;
-    const ext = filename.split(".").pop();
-    return ext !== undefined && ext !== null && audioExtensions.includes(ext.toLowerCase());
+    return checkFileExtension(filename, ["mp3", "wav", "ogg", "aac", "flac"]);
 }
 
 function isVideoFile(filename: string): boolean {
-    const videoExtensions = ["mp4", "webm", "ogg", "avi", "mkv"];
-    if (!filename || filename.length === 0) return false;
-    const ext = filename.split(".").pop();
-    return ext !== undefined && ext !== null && videoExtensions.includes(ext.toLowerCase());
+    return checkFileExtension(filename, ["mp4", "webm", "ogg", "avi", "mkv"]);
 }
 
 export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
@@ -67,7 +64,6 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                                     alt={fileData.name}
                                     className={cn(
                                         "max-w-full max-h-64 rounded-t-2xl object-contain cursor-zoom-in",
-
                                         isCurrentUser ? "rounded-bl-2xl" : "rounded-br-2xl",
                                     )}
                                     onError={() => {
@@ -79,7 +75,10 @@ export const FileDisplay = ({ fileData, isCurrentUser }: FileDisplayProps) => {
                                 <video
                                     src={fileData.link}
                                     controls
-                                    className="max-w-full max-h-64 rounded-t-2xl rounded-br-2xl object-contain cursor-zoom-in"
+                                    className={cn(
+                                        "max-w-full max-h-64 rounded-t-2xl object-contain cursor-zoom-in",
+                                        isCurrentUser ? "rounded-bl-2xl" : "rounded-br-2xl",
+                                    )}
                                     onError={() => {
                                         setVideoError(true);
                                     }}

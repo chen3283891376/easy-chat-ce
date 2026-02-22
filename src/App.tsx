@@ -52,7 +52,7 @@ export default function App() {
         const success = await sendMessage(input, quoteMessage);
         if (success) {
             setInput("");
-            toast.info("发送成功");
+            toast.success("发送成功");
         } else {
             setInput("");
             toast.error("发送失败");
