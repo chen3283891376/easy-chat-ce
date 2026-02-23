@@ -2,7 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DeleteIcon, EditIcon, CheckIcon, XIcon, PlusIcon, LogInIcon } from "lucide-react";
+import { DeleteIcon, PlusIcon, LogInIcon, UserIcon, LogOutIcon } from "lucide-react";
 import {
     ContextMenu,
     ContextMenuContent,
@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/context-menu.tsx";
 import type { Room } from "@/lib/types";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { useState } from "react";
+import { useState, memo } from "react";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { AvatarImage, Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { toast } from "sonner";
 
 interface ChatRoomSidebarProps {
     roomList: Room[];
     currentRoomId: number;
-    username: string;
-    isEditingName: boolean;
-    editNameInput: string;
     isCreatingRoom: boolean;
     isConnected: boolean;
     showNameInput: boolean;
@@ -30,10 +30,6 @@ interface ChatRoomSidebarProps {
     setRoomList: (_roomList: Room[]) => void;
     onRoomSelect: (_roomId: number) => void;
     onRoomDelete: (_roomId: number) => void;
-    onUsernameEditStart: () => void;
-    onUsernameEditCancel: () => void;
-    onUsernameEditInputChange: (_value: string) => void;
-    onUsernameSave: (_newName: string) => void;
     onStartCreateRoom: () => void;
     onStartJoinRoom: () => void;
     onPendingRoomNameChange: (_value: string) => void;
@@ -42,14 +38,13 @@ interface ChatRoomSidebarProps {
     onCancelCreateRoom: () => void;
     onCancelJoinRoom: () => void;
     onJoinRoom: (_roomIdInput: string | null) => Promise<void>;
+    onOpenUserProfile: () => void;
+    onLogout: () => void;
 }
 
-export function ChatRoomSidebar({
+const ChatRoomSidebar = memo(function ChatRoomSidebar({
     roomList,
     currentRoomId,
-    username,
-    isEditingName,
-    editNameInput,
     isCreatingRoom,
     isConnected,
     showNameInput,
@@ -59,10 +54,6 @@ export function ChatRoomSidebar({
     setRoomList,
     onRoomSelect,
     onRoomDelete,
-    onUsernameEditStart,
-    onUsernameEditCancel,
-    onUsernameEditInputChange,
-    onUsernameSave,
     onStartCreateRoom,
     onStartJoinRoom,
     onPendingRoomNameChange,
@@ -71,9 +62,12 @@ export function ChatRoomSidebar({
     onCancelCreateRoom,
     onCancelJoinRoom,
     onJoinRoom,
+    onOpenUserProfile,
+    onLogout,
 }: ChatRoomSidebarProps) {
     const [renamingRoomId, setRenamingRoomId] = useState<number | null>(null);
     const [renameInputValue, setRenameInputValue] = useState("");
+    const { currentProfile } = useUserProfile();
 
     const handleRename = () => {
         if (!renameInputValue.trim()) return;
@@ -86,6 +80,16 @@ export function ChatRoomSidebar({
         }
         setRenamingRoomId(null);
         setRenameInputValue("");
+    };
+
+    const handleMenuClick = (action: string) => {
+        if (action === "edit") {
+            onOpenUserProfile();
+        } else if (action === "logout") {
+            if (window.confirm("确定要注销账号吗？这将清除所有本地数据")) {
+                onLogout();
+            }
+        }
     };
 
     return (
@@ -133,20 +137,6 @@ export function ChatRoomSidebar({
                                                     <LogInIcon />
                                                 </ContextMenuShortcut>
                                             </ContextMenuItem>
-
-                                            <ContextMenuItem
-                                                disabled={!isConnected}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setRenamingRoomId(item.id);
-                                                    setRenameInputValue(item.title);
-                                                }}
-                                            >
-                                                重命名
-                                                <ContextMenuShortcut>
-                                                    <EditIcon />
-                                                </ContextMenuShortcut>
-                                            </ContextMenuItem>
                                         </ContextMenuGroup>
                                     </ContextMenuContent>
                                 </ContextMenu>
@@ -159,43 +149,6 @@ export function ChatRoomSidebar({
             <div className="my-4" />
 
             <div className="mt-4">
-                <div className="mb-2">当前用户：</div>
-                <div className="mb-3 flex items-center justify-between">
-                    {isEditingName ? (
-                        <>
-                            <Input
-                                value={editNameInput}
-                                onChange={(e) => {
-                                    onUsernameEditInputChange(e.target.value);
-                                }}
-                                placeholder="请输入用户名"
-                                className="w-24"
-                            />
-                            <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => {
-                                    onUsernameSave(editNameInput);
-                                }}
-                            >
-                                <CheckIcon className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon-sm" onClick={onUsernameEditCancel}>
-                                <XIcon className="h-4 w-4" />
-                            </Button>
-                        </>
-                    ) : (
-                        <>
-                            <span className="text-sm">{username}</span>
-                            <Button className="ml-1" variant="outline" size="icon-sm" onClick={onUsernameEditStart}>
-                                <EditIcon className="h-4 w-4" />
-                            </Button>
-                        </>
-                    )}
-                </div>
-
-                <Separator className="my-4" />
-
                 <div className="mt-4 flex flex-col gap-2">
                     <Button
                         disabled={isCreatingRoom || !isConnected || showNameInput}
@@ -272,6 +225,57 @@ export function ChatRoomSidebar({
                         </div>
                     )}
                 </div>
+                {currentProfile !== null && (
+                    <>
+                        <Separator className="my-4" />
+
+                        <ContextMenu>
+                            <ContextMenuTrigger className="w-full cursor-pointer">
+                                <div
+                                    className="mb-3 p-3 rounded-lg bg-white border border-gray-200 shadow-sm transition-all duration-200 hover:shadow-md"
+                                    onClick={() => toast.info("请使用点击右键唤起菜单")}
+                                >
+                                    <div className="flex items-center gap-3 w-full">
+                                        <Avatar className="h-10 w-10 border-2 border-blue-100">
+                                            <AvatarImage
+                                                src={currentProfile.avatar}
+                                                alt={currentProfile.username}
+                                                className="object-cover"
+                                            />
+                                            <AvatarFallback className="bg-blue-500 text-white font-medium">
+                                                {currentProfile.username.charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-sm font-medium text-gray-800 truncate block">
+                                                {currentProfile.username}
+                                            </span>
+                                            <span className="text-xs text-gray-500 truncate block">
+                                                {currentProfile.userId.substring(0, 8)}...
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                                <ContextMenuGroup>
+                                    <ContextMenuItem onClick={() => handleMenuClick("edit")}>
+                                        编辑资料
+                                        <ContextMenuShortcut>
+                                            <UserIcon />
+                                        </ContextMenuShortcut>
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => handleMenuClick("logout")}>
+                                        注销账号
+                                        <ContextMenuShortcut>
+                                            <LogOutIcon />
+                                        </ContextMenuShortcut>
+                                    </ContextMenuItem>
+                                </ContextMenuGroup>
+                            </ContextMenuContent>
+                        </ContextMenu>
+                    </>
+                )}
             </div>
 
             <Dialog
@@ -316,4 +320,6 @@ export function ChatRoomSidebar({
             </Dialog>
         </div>
     );
-}
+});
+
+export { ChatRoomSidebar };

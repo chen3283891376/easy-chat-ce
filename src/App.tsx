@@ -1,25 +1,17 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useChatMessages } from "./hooks/useChatMessages";
 import { useRoomManager } from "./hooks/useRoomManager";
-import { useUsername } from "./hooks/useUsername";
 import { ChatRoomSidebar } from "@/components/ChatRoom/ChatRoomSidebar";
 import { MessageArea } from "./components/ChatRoom/MessageArea";
 import InitProfilePage from "@/pages/InitProfile.tsx";
+import UserProfilePage from "@/pages/UserProfile";
 import type { KeyboardEvent } from "react";
 import type { Message } from "@/lib/types";
 import { toast } from "sonner";
+import { useUserProfile } from "./hooks/useUserProfile";
+import { userProfileDB } from "@/lib/db/userProfileDB";
 
 export default function App() {
-    const {
-        username,
-        isEditing: isEditingName,
-        editInput: editNameInput,
-        setEditInput: setEditNameInput,
-        startEditing: startNameEdit,
-        cancelEditing: cancelNameEdit,
-        saveUsername,
-    } = useUsername();
-
     const {
         chatId,
         setChatId,
@@ -41,34 +33,76 @@ export default function App() {
         cancelJoinRoom,
     } = useRoomManager(185655560);
 
+    const { currentProfile } = useUserProfile();
+
+    const [showUserProfile, setShowUserProfile] = useState(false);
+
     const { messages, isSending, sendMessage, sendFile, recallMessage } = useChatMessages(
         chatId,
-        typeof username === "string" ? username : "",
+        currentProfile ? `user_${currentProfile.userId}` : "",
     );
 
     const [input, setInput] = useState("");
 
-    const handleSend = async (quoteMessage?: Message) => {
-        const success = await sendMessage(input, quoteMessage);
-        if (success) {
-            setInput("");
-            toast.success("发送成功");
-        } else {
-            setInput("");
-            toast.error("发送失败");
-        }
-    };
+    const handleSend = useCallback(
+        async (quoteMessage?: Message) => {
+            const success = await sendMessage(input, quoteMessage);
+            if (success) {
+                setInput("");
+                toast.success("发送成功");
+            } else {
+                setInput("");
+                toast.error("发送失败");
+            }
+        },
+        [input, sendMessage],
+    );
 
-    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            void handleSend();
+    const handleKeyDown = useCallback(
+        (e: KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void handleSend();
+            }
+        },
+        [handleSend],
+    );
+
+    const handleStartCreateRoom = useCallback(() => {
+        if (currentProfile?.username) {
+            startCreateRoom(currentProfile.username);
         }
-    };
+    }, [currentProfile, startCreateRoom]);
+
+    const handleRecall = useCallback(
+        (message: Message) => {
+            void recallMessage(message.time);
+        },
+        [recallMessage],
+    );
+
+    const handleOpenUserProfile = useCallback(() => {
+        setShowUserProfile(true);
+    }, []);
+
+    const handleLogout = useCallback(async () => {
+        try {
+            localStorage.removeItem("currentProfile");
+            localStorage.removeItem("userId");
+            localStorage.removeItem("roomList");
+
+            await userProfileDB.clear();
+
+            window.location.href = "/";
+        } catch (error) {
+            console.error("注销失败：", error);
+            toast.error("注销失败，请重试");
+        }
+    }, []);
 
     const isConnected = Boolean(chatId);
 
-    if (username === null) return <InitProfilePage />;
+    if (currentProfile === null) return <InitProfilePage />;
 
     return (
         <div className="h-screen flex">
@@ -76,9 +110,6 @@ export default function App() {
                 <ChatRoomSidebar
                     roomList={roomList}
                     currentRoomId={chatId}
-                    username={username}
-                    isEditingName={isEditingName}
-                    editNameInput={editNameInput}
                     isCreatingRoom={isCreatingRoom}
                     isConnected={isConnected}
                     showNameInput={showNameInput}
@@ -88,13 +119,7 @@ export default function App() {
                     setRoomList={setRoomList}
                     onRoomSelect={setChatId}
                     onRoomDelete={deleteRoom}
-                    onUsernameEditStart={startNameEdit}
-                    onUsernameEditCancel={cancelNameEdit}
-                    onUsernameEditInputChange={setEditNameInput}
-                    onUsernameSave={saveUsername}
-                    onStartCreateRoom={() => {
-                        startCreateRoom(username);
-                    }}
+                    onStartCreateRoom={handleStartCreateRoom}
                     onStartJoinRoom={startJoinRoom}
                     onPendingRoomNameChange={setPendingRoomName}
                     onPendingRoomIDChange={setPendingRoomID}
@@ -102,11 +127,13 @@ export default function App() {
                     onCancelCreateRoom={cancelCreateRoom}
                     onCancelJoinRoom={cancelJoinRoom}
                     onJoinRoom={joinRoom}
+                    onOpenUserProfile={handleOpenUserProfile}
+                    onLogout={handleLogout}
                 />
 
                 <MessageArea
                     messages={messages}
-                    currentUsername={username}
+                    currentUsername={`user_${currentProfile.userId}`}
                     input={input}
                     isSending={isSending}
                     isConnected={isConnected}
@@ -115,10 +142,10 @@ export default function App() {
                     onKeyDown={handleKeyDown}
                     chatId={chatId.toString()}
                     sendFile={sendFile}
-                    handleRecall={(message: Message) => {
-                        void recallMessage(message.time);
-                    }}
+                    handleRecall={handleRecall}
                 />
+
+                <UserProfilePage open={showUserProfile} onOpenChange={setShowUserProfile} />
             </>
         </div>
     );
