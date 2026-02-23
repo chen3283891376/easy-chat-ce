@@ -120,7 +120,7 @@ export function MessageArea({
                 <span className="text-gray-500 text-sm">ID: {chatId}</span>
             </div>
 
-            <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 p-4 relative">
+            <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0 p-4">
                 {messages.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-gray-400">消息正在加载中...</div>
                 ) : (

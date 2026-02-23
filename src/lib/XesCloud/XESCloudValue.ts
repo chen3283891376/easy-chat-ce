@@ -348,17 +348,17 @@ export class XESCloudValue {
         });
     }
 
-    async findNum(name: string): Promise<{ name: string } | string> {
+    async findNum(name: string): Promise<{ name: string } | null> {
         try {
             const dic = await this.getAllNum();
             if (name in dic) {
                 return { name: dic[name] };
             } else {
-                return "the num is not exist";
+                return null;
             }
         } catch (error) {
-            console.error("Error finding number:", error);
-            return "the num is not exist";
+            console.error("查找数据时发生错误:", error);
+            return null;
         }
     }
 

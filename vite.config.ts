@@ -19,5 +19,5 @@ export default defineConfig({
                 rewrite: (url) => url.replace(/^\/xes\/api/, ""),
             },
         },
-    },
+    }
 });

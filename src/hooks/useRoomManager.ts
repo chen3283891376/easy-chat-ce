@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { XESCloudValue } from "@/lib/XesCloud";
 import { parseMessages } from "./useChatMessages";
@@ -42,7 +42,25 @@ export function useRoomManager(initialChatId: number): UseRoomManagerReturn {
     const [chatId, setChatId] = useState<number>(initialChatId);
     const [roomList, setRoomList] = useState<Room[]>(() => {
         const stored = localStorage.getItem("roomList");
-        return stored !== null && stored.length > 0 ? (JSON.parse(stored) as Room[]) : [];
+        if (stored !== null && stored.length > 0) {
+            try {
+                const parsed = JSON.parse(stored) as Room[];
+                const filtered = parsed.filter((room) => room.id !== INVALID_ROOM_ID);
+                if (!filtered.some((room) => room.id === DEFAULT_ROOM_ID)) {
+                    filtered.push({ id: DEFAULT_ROOM_ID, title: "项目大群" });
+                }
+                localStorage.setItem("roomList", JSON.stringify(filtered));
+                return filtered;
+            } catch {
+                const defaultRooms = [{ id: DEFAULT_ROOM_ID, title: "项目大群" }];
+                localStorage.setItem("roomList", JSON.stringify(defaultRooms));
+                return defaultRooms;
+            }
+        } else {
+            const defaultRooms = [{ id: DEFAULT_ROOM_ID, title: "项目大群" }];
+            localStorage.setItem("roomList", JSON.stringify(defaultRooms));
+            return defaultRooms;
+        }
     });
     const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
@@ -53,26 +71,10 @@ export function useRoomManager(initialChatId: number): UseRoomManagerReturn {
     const [pendingRoomID, setPendingRoomID] = useState("");
 
     useEffect(() => {
-        if (roomList.length === 0) {
-            const defaultRooms = [{ id: DEFAULT_ROOM_ID, title: "项目大群" }];
-            setRoomList(defaultRooms);
-            localStorage.setItem("roomList", JSON.stringify(defaultRooms));
-        } else {
-            localStorage.setItem("roomList", JSON.stringify(roomList));
-        }
-        const storedData = localStorage.getItem("roomList");
-        let roomListStored: Room[] = [];
-        if (storedData !== null && storedData.length > 0) {
-            roomListStored = JSON.parse(storedData) as Room[];
-        }
-        roomListStored = roomListStored.filter((room) => room.id !== INVALID_ROOM_ID);
-        if (!roomListStored.some((room) => room.id === DEFAULT_ROOM_ID)) {
-            roomListStored.push({ id: DEFAULT_ROOM_ID, title: "项目大群" });
-        }
-        localStorage.setItem("roomList", JSON.stringify(roomListStored));
+        localStorage.setItem("roomList", JSON.stringify(roomList));
     }, [roomList]);
 
-    async function createRoom(username: string, roomName: string): Promise<number | null> {
+    const createRoom = useCallback(async (username: string, roomName: string): Promise<number | null> => {
         if (roomName.length === 0) {
             toast.error("房间名称不能为空");
             return null;
@@ -102,15 +104,15 @@ export function useRoomManager(initialChatId: number): UseRoomManagerReturn {
         } finally {
             setIsCreatingRoom(false);
         }
-    }
+    }, []);
 
-    function startCreateRoom(username: string): void {
+    const startCreateRoom = useCallback((username: string): void => {
         setPendingUsername(username);
         setPendingRoomName("");
         setShowNameInput(true);
-    }
+    }, []);
 
-    async function confirmCreateRoom(): Promise<void> {
+    const confirmCreateRoom = useCallback(async (): Promise<void> => {
         if (pendingUsername.length === 0) return;
 
         const roomName = pendingRoomName.length > 0 ? pendingRoomName : "";
@@ -119,61 +121,67 @@ export function useRoomManager(initialChatId: number): UseRoomManagerReturn {
         setShowNameInput(false);
         setPendingRoomName("");
         setPendingUsername("");
-    }
+    }, [createRoom, pendingUsername, pendingRoomName]);
 
-    function cancelCreateRoom(): void {
+    const cancelCreateRoom = useCallback((): void => {
         setShowNameInput(false);
         setPendingRoomName("");
         setPendingUsername("");
-    }
+    }, []);
 
-    function startJoinRoom(): void {
+    const startJoinRoom = useCallback((): void => {
         setPendingRoomID("");
         setShowIDInput(true);
-    }
+    }, []);
 
-    async function joinRoom(roomIdInput: string | null): Promise<void> {
-        if (roomIdInput === null || roomIdInput.length === 0) return;
+    const joinRoom = useCallback(
+        async (roomIdInput: string | null): Promise<void> => {
+            if (roomIdInput === null || roomIdInput.length === 0) return;
 
-        const roomId = Number(roomIdInput);
-        if (!roomList.some((room) => room.id === roomId)) {
-            const newXesInstance = new XESCloudValue(roomIdInput);
-            const messages = parseMessages(await newXesInstance.getAllNum());
-            let roomName = `房间${String(roomId)}`;
-            const nameMessage = messages.find((message) => message.type === "name");
-            const msgContent = nameMessage?.msg;
-            if (msgContent !== undefined && msgContent.length > 0) {
-                roomName = msgContent;
-            }
-
-            setRoomList((prev) => [...prev, { id: roomId, title: roomName }]);
-            setChatId(roomId);
-        }
-
-        setShowIDInput(false);
-        setPendingRoomID("");
-    }
-
-    function cancelJoinRoom(): void {
-        setShowIDInput(false);
-        setPendingRoomID("");
-    }
-
-    function deleteRoom(roomId: number): void {
-        setRoomList((prev) => {
-            const newList = prev.filter((room) => room.id !== roomId);
-            if (roomId === chatId) {
-                if (newList.length > 0) {
-                    setChatId(newList[0].id);
-                } else {
-                    const defaultRoom = { id: DEFAULT_ROOM_ID, title: "项目大群" };
-                    setChatId(defaultRoom.id);
-                    return [defaultRoom];
+            const roomId = Number(roomIdInput);
+            if (!roomList.some((room) => room.id === roomId)) {
+                const newXesInstance = new XESCloudValue(roomIdInput);
+                const messages = parseMessages(await newXesInstance.getAllNum());
+                let roomName = `房间${String(roomId)}`;
+                const nameMessage = messages.find((message) => message.type === "name");
+                const msgContent = nameMessage?.msg;
+                if (msgContent !== undefined && msgContent.length > 0) {
+                    roomName = msgContent;
                 }
+
+                setRoomList((prev) => [...prev, { id: roomId, title: roomName }]);
+                setChatId(roomId);
             }
-            return newList;
-        });
-    }
+
+            setShowIDInput(false);
+            setPendingRoomID("");
+        },
+        [roomList],
+    );
+
+    const cancelJoinRoom = useCallback((): void => {
+        setShowIDInput(false);
+        setPendingRoomID("");
+    }, []);
+
+    const deleteRoom = useCallback(
+        (roomId: number): void => {
+            setRoomList((prev) => {
+                const newList = prev.filter((room) => room.id !== roomId);
+                if (roomId === chatId) {
+                    if (newList.length > 0) {
+                        setChatId(newList[0].id);
+                    } else {
+                        const defaultRoom = { id: DEFAULT_ROOM_ID, title: "项目大群" };
+                        setChatId(defaultRoom.id);
+                        return [defaultRoom];
+                    }
+                }
+                return newList;
+            });
+        },
+        [chatId],
+    );
 
     return {
         chatId,

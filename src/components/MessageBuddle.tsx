@@ -1,4 +1,4 @@
-import { AvatarGroupCount } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { IFile } from "@/lib/types";
 import { DownloadIcon, UndoIcon, QuoteIcon } from "lucide-react";
@@ -12,6 +12,9 @@ import {
 import { FileDisplay } from "./FileDisplay";
 import type { Message } from "@/lib/types";
 import { toast } from "sonner";
+import { useEffect, useState, useMemo } from "react";
+import type { UserProfileInMessageBuddle } from "@/lib/types/user";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface MessageBubbleProps {
     quoteMessage?: Message;
@@ -33,44 +36,73 @@ export function MessageBubble({
     keyString,
 }: MessageBubbleProps) {
     const isCurrentUser = message.username === currentUsername;
+    const profileInstance = useUserProfile();
 
-    let fileData: IFile | null = null;
-    let isMedia = false;
-    if (message.type === "share") {
-        try {
-            const parsedData = JSON.parse(message.msg);
-            if (parsedData && typeof parsedData === "object" && "name" in parsedData) {
-                fileData = parsedData as IFile;
-                const mediaExtensions = [
-                    "jpg",
-                    "jpeg",
-                    "png",
-                    "gif",
-                    "webp",
-                    "svg",
-                    "bmp",
-                    "mp4",
-                    "webm",
-                    "mov",
-                    "avi",
-                ];
-                const ext = fileData.name.split(".").pop();
-                isMedia = ext !== undefined && mediaExtensions.includes(ext.toLowerCase());
-            }
-        } catch {
-            fileData = null;
+    const { fileData, isMedia } = useMemo(() => {
+        if (message.type === "share") {
+            try {
+                const parsedData = JSON.parse(message.msg);
+                if (parsedData && typeof parsedData === "object" && "name" in parsedData) {
+                    const data = parsedData as IFile;
+                    const mediaExtensions = [
+                        "jpg",
+                        "jpeg",
+                        "png",
+                        "gif",
+                        "webp",
+                        "svg",
+                        "bmp",
+                        "mp4",
+                        "webm",
+                        "mov",
+                        "avi",
+                    ];
+                    const ext = data.name.split(".").pop();
+                    const media = ext !== undefined && mediaExtensions.includes(ext.toLowerCase());
+                    return { fileData: data, isMedia: media };
+                }
+            } catch {}
         }
-    }
+        return { fileData: null, isMedia: false };
+    }, [message.type, message.msg]);
 
-    const downloadUrl =
-        fileData && fileData.link && fileData.link.includes("python_assets/")
+    const downloadUrl = useMemo(() => {
+        return fileData && fileData.link && fileData.link.includes("python_assets/")
             ? `https://livefile.xesimg.com/programme/python_assets/844958913c304c040803a9d7f79f898e.html?name=${fileData.name}&file=${fileData.link.split("python_assets/")[1]}`
             : "";
+    }, [fileData]);
+
+    const [userProfile, setUserProfile] = useState<UserProfileInMessageBuddle | null>(null);
+
+    const userId = useMemo(() => {
+        const usernamePattern = /^user_([^_]+)/;
+        const username = message.username || "";
+        const match = username.match(usernamePattern);
+        return match ? match[1] : null;
+    }, [message.username]);
+
+    useEffect(() => {
+        const getUserInfo = async () => {
+            const username = message.username || "";
+            if (userId) {
+                const profile = await profileInstance.getUserProfileWithUserID(userId);
+                if (profile !== null) setUserProfile(profile);
+                else setUserProfile({ username, avatar: undefined });
+            } else {
+                setUserProfile({ username, avatar: undefined });
+            }
+        };
+
+        getUserInfo();
+    }, [message.username, userId, profileInstance]);
 
     return (
         <div className={cn("flex mb-4", isCurrentUser ? "justify-end" : "justify-start")} key={keyString}>
             <div className={cn("max-w-[70%] flex items-start gap-3", isCurrentUser && "flex-row-reverse")}>
-                <AvatarGroupCount>{message.username ? message.username[0] : "?"}</AvatarGroupCount>
+                <Avatar>
+                    <AvatarImage src={userProfile?.avatar} alt={userProfile?.username || ""} />
+                    <AvatarFallback>{userProfile?.username?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
                 <div className={cn("flex mb-2", isCurrentUser ? "justify-end" : "justify-start")}>
                     <div
                         className={cn(
@@ -79,7 +111,7 @@ export function MessageBubble({
                         )}
                     >
                         <div className={cn("flex gap-1 min-w-12", isCurrentUser ? "items-end" : "items-start")}>
-                            <span className="text-xs truncate">{message.username}</span>
+                            <span className="text-xs truncate">{userProfile?.username || message.username}</span>
                             <span className="text-xs">{formatTime(message.time)}</span>
                         </div>
 
