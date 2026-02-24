@@ -169,8 +169,9 @@ export function useChatMessages(chatId: number, username: string) {
         xRef.current = new XESCloudValue(String(chatId));
         isPollingActiveRef.current = true;
 
-        // 获取一次消息
-        void fetchMessages();
+        const runFetch = () => fetchMessages();
+
+        runFetch(); // 首次获取
 
         /**
          * 轮询
@@ -179,26 +180,32 @@ export function useChatMessages(chatId: number, username: string) {
         const poll = async (): Promise<void> => {
             if (!isPollingActiveRef.current || !xRef.current) return;
 
+            // 取消旧的
+            abortControllerRef.current?.abort();
             abortControllerRef.current = new AbortController();
-            const signal = abortControllerRef.current.signal;
+            const { signal } = abortControllerRef.current;
 
             try {
                 const freshMessages = await xRef.current.getAllNum(DEFAULT_TIMEOUT, signal);
-                if (!signal.aborted) {
-                    cacheManagerRef.current.set(chatId, freshMessages);
-                    void fetchMessages();
-                }
+                if (signal.aborted) return;
+
+                cacheManagerRef.current.set(chatId, freshMessages);
+
+                runFetch();
             } catch (e) {
                 if (e instanceof DOMException && e.name === "AbortError") return;
                 console.error("更新缓存失败:", e);
             }
 
+            // 只在活跃时设置下一次
             if (isPollingActiveRef.current) {
                 pollingTimeoutRef.current = setTimeout(poll, POLLING_INTERVAL);
             }
         };
 
         pollingTimeoutRef.current = setTimeout(poll, POLLING_INTERVAL);
+
+        return cleanupResources;
     }, [chatId, cleanupResources, fetchMessages]);
 
     // 当 chatId 变化时便重启轮询，卸载时停止
