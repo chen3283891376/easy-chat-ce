@@ -159,7 +159,7 @@ export default function InitProfilePage() {
                             </Field>
 
                             <Field className="mb-4">
-                                <FieldLabel>头像（可选）</FieldLabel>
+                                <FieldLabel>头像</FieldLabel>
                                 <div className="flex items-center gap-4">
                                     <Input
                                         type="file"
@@ -185,7 +185,6 @@ export default function InitProfilePage() {
                                         </div>
                                     </div>
                                 )}
-                                <FieldDescription>可选，如不设置将自动生成</FieldDescription>
                             </Field>
                         </TabsContent>
                         <TabsContent value="login" className="mt-4">
