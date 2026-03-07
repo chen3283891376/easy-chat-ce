@@ -20,7 +20,7 @@ interface UseRoomManagerReturn {
     setRoomList: (list: Room[]) => void;
     isCreatingRoom: boolean;
     createRoom: (username: string, roomName: string) => Promise<number | null>;
-    joinRoom: (roomIdInput: string | null) => Promise<void>;
+    joinRoom: (roomIdInput: string | null, roomname?: string) => Promise<void>;
     deleteRoom: (roomId: number) => void;
     showNameInput: boolean;
     setShowNameInput: (show: boolean) => void;
@@ -136,14 +136,14 @@ export function useRoomManager(initialChatId: number): UseRoomManagerReturn {
     }, []);
 
     const joinRoom = useCallback(
-        async (roomIdInput: string | null): Promise<void> => {
+        async (roomIdInput: string | null, roomname?: string): Promise<void> => {
             if (!roomIdInput?.trim()) return;
 
             const roomId = Number(roomIdInput);
             if (!roomList.some((room) => room.id === roomId)) {
                 const newXesInstance = new XESCloudValue(roomIdInput);
                 const messages = parseMessages(await newXesInstance.getAllNum());
-                const roomName = messages.find((message) => message.type === "name")?.msg?.trim() || `房间${roomId}`;
+                const roomName = roomname || messages.find((message) => message.type === "name")?.msg?.trim() || `房间${roomId}`;
 
                 setRoomList((prev) => [...prev, { id: roomId, title: roomName }]);
                 setChatId(roomId);

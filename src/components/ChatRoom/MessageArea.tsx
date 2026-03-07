@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FileUpIcon, SendIcon, XIcon } from "lucide-react";
 import { MessageBubble } from "@/components/MessageBuddle";
-import type { Message as ChatMessage, IFile } from "@/lib/types";
+import type { Message as ChatMessage, IFile, Room } from "@/lib/types";
 import { FileDisplay } from "@/components/FileDisplay";
 import UploadFile from "@/components/UploadFile.tsx";
 import {
@@ -19,13 +19,7 @@ import {
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { Progress } from "@/components/ui/progress";
 import { useUserProfile } from "@/hooks/useUserProfile";
-
-const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${hours}:${minutes}`;
-};
+import { XESCloudValue } from "@/lib/XesCloud";
 
 interface MessageAreaProps {
     messages: ChatMessage[];
@@ -39,6 +33,8 @@ interface MessageAreaProps {
     chatId: string;
     sendFile: (file: IFile) => Promise<void> | void;
     handleRecall: (message: ChatMessage) => void;
+    joinRoom: (_roomIdInput: string | null) => Promise<void>;
+    sendApply: (username: string, roomId: number) => Promise<void>;
 }
 
 export function MessageArea({
@@ -53,6 +49,8 @@ export function MessageArea({
     chatId,
     sendFile,
     handleRecall,
+    joinRoom,
+    sendApply
 }: MessageAreaProps) {
     const [quoteMessage, setQuoteMessage] = useState<ChatMessage | undefined>(undefined);
     const [quoteMessageUsername, setQuoteMessageUsername] = useState<string | undefined>(undefined);
@@ -90,7 +88,8 @@ export function MessageArea({
     }, [messages, userScrolled]);
 
     const nameMessage = messages.find((message) => message.type === "name");
-    let roomName = nameMessage?.msg || `房间${chatId}`;
+    const roomList = JSON.parse(localStorage.getItem("roomList") || "[]");
+    let roomName = roomList.find((room: Room) => room.id.toString() === chatId)?.title || nameMessage?.msg || `房间${chatId}`;
     if (chatId === "185655560") {
         roomName = "项目大群";
     }
@@ -154,6 +153,27 @@ export function MessageArea({
         void load();
     }, [quoteMessage, fetchProfile]);
 
+    const handleApplyPrivate = useCallback(async (fullUsername: string, username: string) => {
+        const array = new Uint32Array(1);
+        crypto.getRandomValues(array);
+        const projectId = array[0].toString();
+        const roomId = Number(projectId);
+
+        await sendApply(fullUsername, roomId);
+
+        const newXesCloudInstance = new XESCloudValue(roomId.toString());
+        const time = Date.now() / 1000;
+        const payload = JSON.stringify({
+            currentUsername,
+            msg: username,
+            type: 'name',
+            time,
+        })
+        await newXesCloudInstance.sendNum(payload, time.toString());
+
+        joinRoom(projectId);
+    }, [sendApply, currentUsername, joinRoom]);
+
     return (
         <div className="flex-1 flex flex-col h-full">
             <div className="p-3 flex gap-2 border-b items-end shrink-0">
@@ -176,8 +196,8 @@ export function MessageArea({
                             }
                             message={message}
                             currentUsername={currentUsername}
-                            formatTime={formatTime}
                             handleRecall={handleRecall}
+                            handleApplyPrivate={handleApplyPrivate}
                         />
                     ))
                 )}

@@ -5,6 +5,15 @@ export interface IFile {
     time: string;
 }
 
+export interface ApplyPrivateChatMessage {
+    type: "applyPrivateChat";
+    username: string;
+    time: number;
+    applyer: string;
+    roomId: number;
+    applyed?: boolean;
+}
+
 export interface Message {
     username: string;
     msg: string;

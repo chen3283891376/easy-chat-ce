@@ -10,6 +10,7 @@ import type { Message } from "@/lib/types";
 import { toast } from "sonner";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { userProfileDB } from "@/lib/db/userProfileDB";
+import { usePrivateChat } from "./hooks/usePrivateChat";
 
 export default function App() {
     const {
@@ -40,6 +41,11 @@ export default function App() {
     const { messages, isSending, sendMessage, sendFile, recallMessage } = useChatMessages(
         chatId,
         currentProfile ? `user_${currentProfile.userId}` : "",
+    );
+
+    const { sendPrivateChatApply, getPrivateChatApplys, acceptPrivateChatApply } = usePrivateChat(
+        currentProfile?.username || "", 
+        currentProfile ? `user_${currentProfile.userId}` : ""
     );
 
     const [input, setInput] = useState("");
@@ -129,6 +135,8 @@ export default function App() {
                     onJoinRoom={joinRoom}
                     onOpenUserProfile={handleOpenUserProfile}
                     onLogout={handleLogout}
+                    getApplyList={getPrivateChatApplys}
+                    acceptApply={acceptPrivateChatApply}
                 />
 
                 <MessageArea
@@ -143,6 +151,8 @@ export default function App() {
                     chatId={chatId.toString()}
                     sendFile={sendFile}
                     handleRecall={handleRecall}
+                    joinRoom={joinRoom}
+                    sendApply={sendPrivateChatApply}
                 />
 
                 <UserProfilePage open={showUserProfile} onOpenChange={setShowUserProfile} />

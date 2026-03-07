@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
 import type { IFile } from "@/lib/types";
 import { DownloadIcon, UndoIcon, QuoteIcon } from "lucide-react";
 import {
@@ -20,20 +20,20 @@ interface MessageBubbleProps {
     quoteMessage?: Message;
     message: Message;
     currentUsername: string;
-    formatTime: (timestamp: number) => string;
     handleRecall: (message: Message) => void;
     setQuoteMessage: (message: Message | undefined) => void;
     keyString?: string;
+    handleApplyPrivate: (fullUsername: string, username: string) => Promise<void>;
 }
 
 export function MessageBubble({
     quoteMessage,
     message,
     currentUsername,
-    formatTime,
     handleRecall,
     setQuoteMessage,
     keyString,
+    handleApplyPrivate,
 }: MessageBubbleProps) {
     const isCurrentUser = message.username === currentUsername;
     const profileInstanceRef = useRef(useUserProfile());
@@ -120,7 +120,18 @@ export function MessageBubble({
     return (
         <div className={cn("flex mb-4", isCurrentUser ? "justify-end" : "justify-start")} key={keyString}>
             <div className={cn("max-w-[70%] flex items-start gap-3", isCurrentUser && "flex-row-reverse")}>
-                <Avatar>
+                <Avatar onClick={() => {
+                    if (!isCurrentUser) {
+                        toast("是否申请好友？", {
+                            action: {
+                                label: '确定',
+                                onClick: async () => {
+                                    handleApplyPrivate(message.username, userProfile?.username || "");
+                                }
+                            }
+                        });
+                    }
+                }}>
                     <AvatarImage src={userProfile?.avatar} alt={userProfile?.username || ""} />
                     <AvatarFallback>{userProfile?.username?.charAt(0) || "U"}</AvatarFallback>
                 </Avatar>
